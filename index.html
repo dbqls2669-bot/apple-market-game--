@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍎 사과시장 게임</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green: #2D6A10;
+  --green-light: #E8F5DC;
+  --green-mid: #4E9A1E;
+  --blue: #1A5FA8;
+  --blue-light: #E3EEFB;
+  --red: #A63020;
+  --red-light: #FAEAE7;
+  --amber: #B87010;
+  --amber-light: #FAEDCC;
+  --gray: #F4F4F1;
+  --gray2: #E6E6E2;
+  --gray3: #999990;
+  --text: #1A1A16;
+  --text2: #55554E;
+  --text3: #99998E;
+  --border: rgba(0,0,0,0.09);
+  --white: #FEFEFE;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #EDEDEA;
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 0 80px;
+  min-height: 100vh;
+  background: var(--white);
+  box-shadow: 0 0 60px rgba(0,0,0,0.10);
+  position: relative;
+}
+
+/* Header */
+.header {
+  background: var(--green);
+  color: #fff;
+  padding: 18px 20px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+.header h1 { font-size: 17px; font-weight: 700; color: #fff; }
+.header-sub { font-size: 12px; color: rgba(255,255,255,0.65); }
+.market-badge {
+  margin-left: auto;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.market-badge.open { background: #fff; color: var(--green); }
+
+/* Screen */
+.screen { display: none; padding: 18px; }
+.screen.on { display: block; }
+
+/* Card */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.card-title { font-size: 12px; font-weight: 700; color: var(--text3); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Buttons */
+.btn {
+  display: block; width: 100%;
+  padding: 13px 16px;
+  font-size: 15px; font-weight: 500; font-family: inherit;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--gray);
+  color: var(--text);
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: all 0.13s;
+  text-align: center;
+}
+.btn:hover { background: var(--gray2); }
+.btn:active { transform: scale(0.98); }
+.btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+.btn-green:hover { background: #1E4C0A; }
+.btn-blue { background: var(--blue); color: #fff; border-color: var(--blue); }
+.btn-blue:hover { background: #0D3F74; }
+.btn-red { background: var(--red); color: #fff; border-color: var(--red); }
+.btn-red:hover { background: #751F14; }
+.btn-amber { background: var(--amber); color: #fff; border-color: var(--amber); }
+.btn-sm { width: auto; display: inline-block; padding: 8px 14px; font-size: 13px; margin-bottom: 0; margin-right: 6px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Tags */
+.tag {
+  display: inline-block; padding: 3px 10px;
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+}
+.tag-seller { background: var(--blue-light); color: var(--blue); }
+.tag-buyer { background: var(--red-light); color: var(--red); }
+.tag-s1 { background: var(--green-light); color: var(--green); }
+.tag-s2 { background: var(--amber-light); color: var(--amber); }
+
+/* Big number */
+.big-num { font-size: 34px; font-weight: 700; line-height: 1.1; }
+.label-sm { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+
+/* Metric grid */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.metric-grid.g3 { grid-template-columns: 1fr 1fr 1fr; }
+.metric { background: var(--gray); border-radius: var(--radius-sm); padding: 12px 14px; text-align: center; }
+
+/* Notice */
+.notice {
+  padding: 11px 14px; border-radius: var(--radius-sm);
+  font-size: 13px; margin-bottom: 12px; font-weight: 500;
+}
+.notice-ok { background: var(--green-light); color: var(--green); }
+.notice-warn { background: var(--amber-light); color: var(--amber); }
+.notice-err { background: var(--red-light); color: var(--red); }
+
+/* Input */
+.input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.input-row label { font-size: 13px; color: var(--text2); min-width: 70px; }
+input[type=number], input[type=text], input[type=password] {
+  padding: 10px 12px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); font-size: 15px; font-family: inherit;
+  background: var(--gray); width: 100%;
+}
+input[type=number] { width: 110px; }
+input:focus { outline: none; border-color: var(--blue); background: #fff; }
+
+/* Section sep */
+.section-sep {
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin: 18px 0 10px;
+}
+
+/* Tab nav */
+.tab-nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: 480px;
+  background: var(--white); border-top: 1px solid var(--border);
+  display: flex; z-index: 200;
+}
+.tab-btn {
+  flex: 1; padding: 9px 4px 11px;
+  border: none; background: none; cursor: pointer;
+  font-size: 10px; color: var(--text3); font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  transition: color 0.13s;
+}
+.tab-btn .ti { font-size: 20px; }
+.tab-btn.active { color: var(--green); }
+
+/* Chart */
+.chart-wrap { position: relative; width: 100%; height: 270px; }
+
+/* Empty */
+.empty { text-align: center; color: var(--text3); padding: 22px 16px; font-size: 13px; }
+
+/* Scroll list */
+.scroll-list { max-height: 260px; overflow-y: auto; }
+
+/* Role card */
+.role-card {
+  text-align: center; padding: 26px 20px;
+  border-radius: var(--radius); margin-bottom: 12px;
+}
+.role-card.seller { background: var(--blue-light); border: 1.5px solid var(--blue); }
+.role-card.buyer { background: var(--red-light); border: 1.5px solid var(--red); }
+.role-icon { font-size: 46px; margin-bottom: 8px; }
+.role-name { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+.role-value { font-size: 30px; font-weight: 700; margin: 8px 0 4px; }
+.role-value-label { font-size: 13px; color: var(--text2); }
+.role-rule { font-size: 13px; color: var(--text2); margin-top: 10px; line-height: 1.7; }
+
+/* Trade row */
+.trade-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; background: var(--gray);
+  border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 6px;
+}
+.profit { font-weight: 700; color: var(--green); }
+
+/* Post item (광장) */
+.post-item {
+  padding: 13px 15px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  background: var(--white);
+  cursor: pointer;
+  transition: all 0.13s;
+  position: relative;
+}
+.post-item:hover { border-color: var(--blue); background: var(--blue-light); }
+.post-item.seller-post { border-left: 3px solid var(--blue); }
+.post-item.buyer-post { border-left: 3px solid var(--red); }
+.post-item.mine { opacity: 0.6; cursor: default; }
+.post-item.mine:hover { border-color: var(--border); background: var(--white); }
+.post-price { font-size: 17px; font-weight: 700; }
+.post-meta { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.post-in-chat { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* Chat */
+.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 200px); min-height: 300px; }
+.chat-header {
+  background: var(--gray); border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.chat-messages {
+  flex: 1; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; margin-bottom: 8px;
+  background: var(--gray);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.msg {
+  max-width: 80%; padding: 9px 13px;
+  border-radius: 13px; font-size: 14px; line-height: 1.5;
+}
+.msg.mine { background: var(--green); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+.msg.theirs { background: var(--white); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
+.msg-name { font-size: 11px; color: var(--text3); margin-bottom: 3px; }
+.msg-system { text-align: center; font-size: 12px; color: var(--text3); padding: 4px 0; }
+.chat-input-row { display: flex; gap: 8px; }
+.chat-input-row input { flex: 1; }
+.chat-input-row button { width: auto; padding: 10px 16px; margin: 0; font-size: 14px; }
+
+/* Contract modal */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+  z-index: 500; display: flex; align-items: flex-end; justify-content: center;
+}
+.modal {
+  background: var(--white); border-radius: var(--radius) var(--radius) 0 0;
+  padding: 24px 20px 32px; width: 100%; max-width: 480px;
+  animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-title { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+
+/* Student list */
+.student-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--gray);
+  border-radius: var(--radius-sm); margin-bottom: 6px; font-size: 13px;
+}
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+
+/* Apple decoration */
+.apple-bg {
+  font-size: 80px; opacity: 0.06; position: absolute;
+  right: -10px; top: 50%; transform: translateY(-50%);
+  pointer-events: none; line-height: 1;
+}
+
+/* Loading overlay */
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(255,255,255,0.9);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 999; gap: 14px;
+}
+.spinner {
+  width: 36px; height: 36px; border: 3px solid var(--gray2);
+  border-top-color: var(--green); border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+/* Pending request */
+.pending-banner {
+  background: var(--amber-light); border: 1.5px solid var(--amber);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  margin-bottom: 10px; font-size: 13px;
+}
+
+.badge-count {
+  background: var(--red); color: #fff;
+  border-radius: 999px; font-size: 10px; font-weight: 700;
+  padding: 1px 6px; margin-left: 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div style="font-size:40px">🍎</div>
+  <div class="spinner"></div>
+  <div style="font-size:14px;color:var(--text2)">연결 중...</div>
+</div>
+
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <span style="font-size:20px">🍎</span>
+      <h1>사과시장 게임</h1>
+      <span class="market-badge" id="market-badge">🔴 닫힘</span>
+    </div>
+    <div class="header-sub" id="header-sub">세션 1 · 라운드 1</div>
+  </div>
+
+  <!-- ① 홈 -->
+  <div id="s-home" class="screen on">
+    <div style="text-align:center; padding: 30px 0 22px; position:relative; overflow:hidden;">
+      <div class="apple-bg">🍎</div>
+      <div style="font-size:54px; margin-bottom:10px;">🍎</div>
+      <div style="font-size:21px; font-weight:700; margin-bottom:6px;">사과시장 게임</div>
+      <div style="font-size:14px; color:var(--text2);">수요·공급으로 배우는 가격결정 원리</div>
+    </div>
+    <div class="section-sep">역할을 선택하세요</div>
+    <button class="btn btn-green" onclick="showTeacherLogin()">📊 교사로 입장</button>
+    <button class="btn btn-blue" onclick="showStudentLogin()">🎮 학생으로 입장</button>
+    <div class="card" style="margin-top:16px; background:var(--gray); border:none; box-shadow:none;">
+      <div class="card-title">게임 방법</div>
+      <div style="font-size:13px; color:var(--text2); line-height:1.9;">
+        1. 교사가 시장을 열면 학생들이 참여해요<br>
+        2. 판매자·수요자 모두 광장에 제안을 올려요<br>
+        3. 관심 있는 제안을 클릭하면 1:1 채팅 시작<br>
+        4. 채팅으로 흥정 후 거래계약서로 거래 완료<br>
+        5. 교사가 시장을 닫으면 거래 내역 전체 공개
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 교사 로그인 -->
+  <div id="s-teacher-login" class="screen">
+    <div style="font-size:18px; font-weight:700; margin-bottom:16px;">📊 교사 입장</div>
+    <div id="teacher-login-notice" class="notice notice-err" style="display:none"></div>
+    <div class="card">
+      <div class="input-row" style="flex-direction:column; align-items:stretch;">
+        <label style="margin-bottom:6px; font-size:13px; color:var(--text2);">비밀번호</label>
+        <input type="password" id="teacher-pw" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')teacherLogin()">
+      </div>
+      <button class="btn btn-green" onclick="teacherLogin()">입장하기</button>
+    </div>
+    <button class="btn" onclick="showScreen('s-home')">← 돌아가기</button>
+  </div>
+
+  <!-- ③ 학생 로그인 -->
+  <div id="s-student-login" class="screen">
+    <div style="font-size:18px; font-weight:700; margin-bottom:16px;">🎮 학생 입장</div>
+    <div id="student-login-notice" class="notice notice-err" style="display:none"></div>
+    <div class="card">
+      <div class="input-row" style="flex-direction:column; align-items:stretch;">
+        <label style="margin-bottom:6px; font-size:13px; color:var(--text2);">이름</label>
+        <input type="text" id="student-name" placeholder="본인 이름 입력" maxlength="10" onkeydown="if(event.key==='Enter')studentLogin()">
+      </div>
+      <button class="btn btn-blue" onclick="studentLogin()">입장하기</button>
+    </div>
+    <button class="btn" onclick="showScreen('s-home')">← 돌아가기</button>
+  </div>
+
+  <!-- ④ 교사 화면 -->
+  <div id="s-teacher" class="screen">
+    <div class="section-sep">시장 제어</div>
+    <div class="card" style="position:relative; overflow:hidden;">
+      <div class="apple-bg" style="font-size:55px;">🍎</div>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+        <span class="tag tag-s1" id="t-sess-tag">세션 1</span>
+        <span style="font-weight:600;" id="t-round-label">라운드 1</span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-green btn-sm" onclick="openMarket()">🟢 시장 열기</button>
+        <button class="btn btn-red btn-sm" onclick="closeMarket()">🔴 시장 닫기</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm" onclick="nextRound()">다음 라운드 →</button>
+        <button class="btn btn-sm" onclick="nextSession()">다음 세션 →</button>
+        <button class="btn btn-sm" style="color:var(--red)" onclick="resetGame()">초기화</button>
+      </div>
+    </div>
+
+    <div class="metric-grid g3">
+      <div class="metric">
+        <div class="label-sm">총 거래</div>
+        <div class="big-num" id="t-total">0</div>
+      </div>
+      <div class="metric">
+        <div class="label-sm">이번 라운드</div>
+        <div class="big-num" id="t-round-cnt">0</div>
+      </div>
+      <div class="metric">
+        <div class="label-sm">평균 거래가</div>
+        <div class="big-num" style="font-size:20px;" id="t-avg">—</div>
+      </div>
+    </div>
+
+    <div class="section-sep">접속 중인 학생 (<span id="t-student-cnt">0</span>명)</div>
+    <div id="t-student-list"><div class="empty">아직 접속한 학생이 없습니다.</div></div>
+
+    <div class="section-sep">실시간 거래 내역</div>
+    <div id="t-trade-list" class="scroll-list">
+      <div class="empty">아직 거래가 없습니다.</div>
+    </div>
+  </div>
+
+  <!-- ⑤ 학생: 내 역할 -->
+  <div id="s-role" class="screen">
+    <div class="section-sep">내 역할</div>
+    <div id="role-card-wrap"></div>
+    <div id="role-notice" class="notice notice-warn" style="display:none"></div>
+    <button class="btn btn-blue" onclick="showTab('market')">시장으로 이동 →</button>
+  </div>
+
+  <!-- ⑥ 시장 광장 -->
+  <div id="s-market" class="screen">
+    <div id="m-status" class="notice notice-warn">⏳ 시장이 열리기를 기다리는 중...</div>
+
+    <!-- 내 제안 올리기 -->
+    <div class="card">
+      <div class="card-title">내 제안 올리기</div>
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+        <input type="number" id="my-offer-price" min="0.5" max="5" step="0.1" placeholder="가격" style="flex:1; width:auto;">
+        <span style="font-size:13px; color:var(--text2); white-space:nowrap;">만원에</span>
+        <span id="my-role-label" style="font-size:13px; font-weight:700; color:var(--blue)">팔아요</span>
+      </div>
+      <button class="btn btn-green" id="post-offer-btn" onclick="postMyOffer()">📢 광장에 올리기</button>
+      <div id="my-post-status" style="font-size:12px; color:var(--text3); margin-top:6px;"></div>
+    </div>
+
+    <!-- 채팅 요청 대기 배너 -->
+    <div id="pending-banner" class="pending-banner" style="display:none">
+      <div style="font-weight:700; margin-bottom:6px;">💬 채팅 요청이 왔어요!</div>
+      <div id="pending-from" style="margin-bottom:10px; font-size:13px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-green btn-sm" onclick="acceptChat()">수락</button>
+        <button class="btn btn-red btn-sm" onclick="rejectChat()">거절</button>
+      </div>
+    </div>
+
+    <!-- 광장 게시물 -->
+    <div class="section-sep">시장 광장</div>
+    <div id="plaza-list">
+      <div class="empty">아직 제안이 없습니다. 먼저 올려보세요!</div>
+    </div>
+  </div>
+
+  <!-- ⑦ 채팅 -->
+  <div id="s-chat" class="screen" style="padding:14px;">
+    <div class="chat-header">
+      <span id="chat-partner-role"></span>
+      <span id="chat-partner-name" style="font-weight:700;"></span>
+      <button class="btn btn-sm btn-red" style="margin-left:auto; margin-bottom:0;" onclick="breakChat()">협상 파기</button>
+    </div>
+    <div class="chat-wrap">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="메시지 입력..." maxlength="100" onkeydown="if(event.key==='Enter')sendChatMsg()">
+        <button class="btn btn-green" onclick="sendChatMsg()">전송</button>
+      </div>
+    </div>
+    <hr>
+    <button class="btn btn-amber" onclick="showContractModal()">📄 거래계약서 작성</button>
+  </div>
+
+  <!-- ⑧ 곡선 탭 -->
+  <div id="s-chart" class="screen">
+    <div class="btn-row">
+      <button class="btn btn-sm" id="cs1-btn" onclick="renderChart(1)" style="background:var(--green);color:#fff;border-color:var(--green)">세션 1</button>
+      <button class="btn btn-sm" id="cs2-btn" onclick="renderChart(2)">세션 2</button>
+    </div>
+    <div class="metric-grid">
+      <div class="metric">
+        <div class="label-sm" id="chart-sess-label">세션 1 거래 수</div>
+        <div class="big-num" id="chart-cnt">0</div>
+      </div>
+      <div class="metric">
+        <div class="label-sm">평균 거래가</div>
+        <div class="big-num" id="chart-avg">—</div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px;">
+      <div class="chart-wrap">
+        <canvas id="sdChart"></canvas>
+      </div>
+      <div style="display:flex;gap:16px;font-size:12px;color:var(--text2);margin-top:10px;flex-wrap:wrap;">
+        <span><span style="display:inline-block;width:14px;height:3px;background:#1A5FA8;vertical-align:middle;margin-right:4px;"></span>공급곡선</span>
+        <span><span style="display:inline-block;width:14px;height:3px;background:#A63020;vertical-align:middle;margin-right:4px;"></span>수요곡선</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#2D6A10;border-radius:50%;vertical-align:middle;margin-right:4px;"></span>실제 거래가</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">라운드별 평균 거래가</div>
+      <div id="round-summary"></div>
+    </div>
+    <div class="card" id="session-compare" style="display:none">
+      <div class="card-title">세션 비교</div>
+      <div id="session-compare-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 하단 탭 (학생용) -->
+<nav class="tab-nav" id="tab-nav-student" style="display:none">
+  <button class="tab-btn active" id="tab-role" onclick="showTab('role')">
+    <span class="ti ti-user"></span>내 역할
+  </button>
+  <button class="tab-btn" id="tab-market" onclick="showTab('market')">
+    <span class="ti ti-building-store"></span>광장
+  </button>
+  <button class="tab-btn" id="tab-chat" onclick="showTab('chat')">
+    <span class="ti ti-message"></span>채팅<span id="chat-badge" class="badge-count" style="display:none">!</span>
+  </button>
+  <button class="tab-btn" id="tab-chart" onclick="showTab('chart'); renderChart(chartSess)">
+    <span class="ti ti-chart-line"></span>곡선
+  </button>
+</nav>
+
+<!-- 하단 탭 (교사용) -->
+<nav class="tab-nav" id="tab-nav-teacher" style="display:none">
+  <button class="tab-btn active" id="tab-teacher-main" onclick="showTeacherTab('teacher')">
+    <span class="ti ti-settings"></span>관리
+  </button>
+  <button class="tab-btn" id="tab-teacher-chart" onclick="showTeacherTab('chart'); renderChart(chartSess)">
+    <span class="ti ti-chart-line"></span>곡선
+  </button>
+</nav>
+
+<!-- 거래계약서 모달 -->
+<div class="modal-bg" id="contract-modal" style="display:none" onclick="if(event.target===this)closeContractModal()">
+  <div class="modal">
+    <div class="modal-title">📄 거래계약서</div>
+    <div id="contract-status-area"></div>
+    <div id="contract-my-area">
+      <p style="font-size:13px; color:var(--text2); margin-bottom:12px;">합의한 가격을 입력하고 제출하세요. 상대방이 확인하면 거래가 성사됩니다.</p>
+      <div class="input-row" style="margin-bottom:14px;">
+        <label>합의 가격</label>
+        <input type="number" id="contract-price" min="0.5" max="5" step="0.1" placeholder="0.0">
+        <span style="font-size:13px; color:var(--text2);">만원</span>
+      </div>
+      <button class="btn btn-green" onclick="submitContract()">제출하기</button>
+    </div>
+    <button class="btn" style="margin-top:8px;" onclick="closeContractModal()">닫기</button>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, push, onValue, remove, update, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCuRqQinRrzUT1ZRisAOnf0pxg0E9jHLbg",
+  authDomain: "education-2cc00.firebaseapp.com",
+  databaseURL: "https://education-2cc00-default-rtdb.firebaseio.com",
+  projectId: "education-2cc00",
+  storageBucket: "education-2cc00.firebasestorage.app",
+  messagingSenderId: "352995150872",
+  appId: "1:352995150872:web:1317d50a2b1c165ab7c76d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ── 상수 ──
+const TEACHER_PW = 'apple2025';
+const ROLE_POOL = {
+  1: [
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:2},
+    {role:'buyer', cost:0, value:2},
+    {role:'buyer', cost:0, value:2},
+    {role:'buyer', cost:0, value:2},
+  ],
+  2: [
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:1, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'seller', cost:3, value:0},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:4},
+    {role:'buyer', cost:0, value:2},
+    {role:'buyer', cost:0, value:2},
+  ]
+};
+
+// ── 로컬 상태 ──
+let myName = '';
+let myRole = null; // {role, cost, value}
+let isTeacher = false;
+let chatRoomId = null;
+let chatPartner = null;
+let chartSess = 1;
+let sdChart = null;
+let gameListeners = [];
+
+// ── 노출 전역 함수 ──
+window.showTeacherLogin = showTeacherLogin;
+window.showStudentLogin = showStudentLogin;
+window.teacherLogin = teacherLogin;
+window.studentLogin = studentLogin;
+window.showScreen = showScreen;
+window.showTab = showTab;
+window.showTeacherTab = showTeacherTab;
+window.openMarket = openMarket;
+window.closeMarket = closeMarket;
+window.nextRound = nextRound;
+window.nextSession = nextSession;
+window.resetGame = resetGame;
+window.postMyOffer = postMyOffer;
+window.acceptChat = acceptChat;
+window.rejectChat = rejectChat;
+window.breakChat = breakChat;
+window.sendChatMsg = sendChatMsg;
+window.showContractModal = showContractModal;
+window.closeContractModal = closeContractModal;
+window.submitContract = submitContract;
+window.renderChart = renderChart;
+window.chartSess = chartSess;
+
+// ── 초기화 ──
+document.getElementById('loading').style.display = 'none';
+
+// ── 화면 전환 ──
+function showScreen(id) {
+  ['s-home','s-teacher-login','s-student-login','s-teacher','s-role','s-market','s-chat','s-chart'].forEach(s => {
+    document.getElementById(s).classList.remove('on');
+  });
+  document.getElementById(id).classList.add('on');
+}
+
+function showTab(tab) {
+  const tabs = ['role','market','chat','chart'];
+  tabs.forEach(t => {
+    const s = document.getElementById('s-'+t);
+    const b = document.getElementById('tab-'+t);
+    if(s) s.classList.remove('on');
+    if(b) b.classList.remove('active');
+  });
+  const s = document.getElementById('s-'+tab);
+  const b = document.getElementById('tab-'+tab);
+  if(s) s.classList.add('on');
+  if(b) b.classList.add('active');
+  if(tab === 'chat') {
+    document.getElementById('chat-badge').style.display = 'none';
+    scrollChatToBottom();
+  }
+}
+
+function showTeacherTab(tab) {
+  ['teacher','chart'].forEach(t => {
+    document.getElementById('s-'+t)?.classList.remove('on');
+  });
+  document.getElementById('tab-teacher-main')?.classList.remove('active');
+  document.getElementById('tab-teacher-chart')?.classList.remove('active');
+  document.getElementById('s-'+tab)?.classList.add('on');
+  if(tab === 'teacher') document.getElementById('tab-teacher-main').classList.add('active');
+  else document.getElementById('tab-teacher-chart').classList.add('active');
+}
+
+// ── 교사 로그인 ──
+function showTeacherLogin() { showScreen('s-teacher-login'); }
+
+async function teacherLogin() {
+  const pw = document.getElementById('teacher-pw').value.trim();
+  if(pw !== TEACHER_PW) {
+    showMsg('teacher-login-notice', '비밀번호가 틀렸습니다.', 'err'); return;
+  }
+  // 교사 중복 확인
+  const snap = await get(ref(db, 'game/teacherOnline'));
+  if(snap.exists() && snap.val() === true) {
+    showMsg('teacher-login-notice', '이미 교사가 입장해 있습니다.', 'err'); return;
+  }
+  isTeacher = true;
+  await set(ref(db, 'game/teacherOnline'), true);
+  // 게임 초기 데이터 없으면 생성
+  const gameSnap = await get(ref(db, 'game/state'));
+  if(!gameSnap.exists()) {
+    await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });
+  }
+  document.getElementById('tab-nav-teacher').style.display = 'flex';
+  showTeacherTab('teacher');
+  startTeacherListeners();
+  // 브라우저 닫힐 때 교사 상태 해제
+  window.addEventListener('beforeunload', () => {
+    set(ref(db, 'game/teacherOnline'), false);
+  });
+}
+
+// ── 학생 로그인 ──
+function showStudentLogin() { showScreen('s-student-login'); }
+
+async function studentLogin() {
+  const name = document.getElementById('student-name').value.trim();
+  if(!name) { showMsg('student-login-notice', '이름을 입력해주세요.', 'err'); return; }
+
+  // 이름 중복 확인
+  const snap = await get(ref(db, 'students'));
+  if(snap.exists()) {
+    const students = snap.val();
+    if(Object.values(students).some(s => s.name === name)) {
+      showMsg('student-login-notice', '이미 같은 이름이 있습니다. 다른 이름을 사용해주세요.', 'err'); return;
+    }
+  }
+
+  // 역할 배정
+  const stateSnap = await get(ref(db, 'game/state'));
+  const session = stateSnap.exists() ? (stateSnap.val().session || 1) : 1;
+  const assignedRole = await assignRole(name, session);
+  if(!assignedRole) {
+    showMsg('student-login-notice', '역할이 모두 배정되었습니다. 교사에게 문의하세요.', 'err'); return;
+  }
+
+  myName = name;
+  myRole = assignedRole;
+
+  // Firebase에 학생 등록
+  await set(ref(db, 'students/' + name), {
+    name, role: myRole.role, cost: myRole.cost, value: myRole.value,
+    session, online: true, inChat: false, traded: false
+  });
+
+  window.addEventListener('beforeunload', () => {
+    set(ref(db, 'students/' + name + '/online'), false);
+  });
+
+  document.getElementById('tab-nav-student').style.display = 'flex';
+  renderMyRole();
+  showTab('role');
+  startStudentListeners();
+}
+
+async function assignRole(name, session) {
+  const pool = [...ROLE_POOL[session]];
+  const snap = await get(ref(db, 'students'));
+  const taken = snap.exists() ? Object.values(snap.val()).map(s => ({role:s.role, cost:s.cost, value:s.value})) : [];
+
+  // 남은 역할 계산
+  let remaining = [...pool];
+  for(const t of taken) {
+    const idx = remaining.findIndex(r => r.role===t.role && r.cost===t.cost && r.value===t.value);
+    if(idx !== -1) remaining.splice(idx, 1);
+  }
+  if(!remaining.length) return null;
+  return remaining[Math.floor(Math.random() * remaining.length)];
+}
+
+// ── 내 역할 렌더링 ──
+function renderMyRole() {
+  const wrap = document.getElementById('role-card-wrap');
+  const isSeller = myRole.role === 'seller';
+  document.getElementById('my-role-label').textContent = isSeller ? '팔아요' : '사고 싶어요';
+  if(isSeller) {
+    wrap.innerHTML = `
+      <div class="role-card seller">
+        <div class="role-icon">🏪</div>
+        <div class="role-name" style="color:var(--blue)">판매자 (공급자)</div>
+        <div class="role-value" style="color:var(--blue)">${myRole.cost}만원</div>
+        <div class="role-value-label">내 생산비용</div>
+        <div class="role-rule">생산비용(<b>${myRole.cost}만원</b>) 이상의 가격으로 팔아야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
+      </div>`;
+  } else {
+    wrap.innerHTML = `
+      <div class="role-card buyer">
+        <div class="role-icon">🛒</div>
+        <div class="role-name" style="color:var(--red)">구매자 (수요자)</div>
+        <div class="role-value" style="color:var(--red)">${myRole.value}만원</div>
+        <div class="role-value-label">내 지불의향가격</div>
+        <div class="role-rule">지불의향가격(<b>${myRole.value}만원</b>) 이하로 사야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
+      </div>`;
+  }
+}
+
+// ── 교사 리스너 ──
+function startTeacherListeners() {
+  const stateRef = ref(db, 'game/state');
+  onValue(stateRef, snap => {
+    if(!snap.exists()) return;
+    const s = snap.val();
+    updateHeaderState(s);
+    document.getElementById('t-sess-tag').textContent = `세션 ${s.session}`;
+    document.getElementById('t-sess-tag').className = `tag tag-s${s.session}`;
+    document.getElementById('t-round-label').textContent = `라운드 ${s.round}`;
+  });
+
+  const studentsRef = ref(db, 'students');
+  onValue(studentsRef, snap => {
+    const list = document.getElementById('t-student-list');
+    if(!snap.exists()) {
+      list.innerHTML = '<div class="empty">아직 접속한 학생이 없습니다.</div>';
+      document.getElementById('t-student-cnt').textContent = '0';
+      return;
+    }
+    const students = Object.values(snap.val()).filter(s => s.online);
+    document.getElementById('t-student-cnt').textContent = students.length;
+    if(!students.length) {
+      list.innerHTML = '<div class="empty">아직 접속한 학생이 없습니다.</div>';
+      return;
+    }
+    list.innerHTML = students.map(s => `
+      <div class="student-item">
+        <div class="online-dot"></div>
+        <span style="font-weight:600;">${s.name}</span>
+        <span class="tag ${s.role==='seller'?'tag-seller':'tag-buyer'}" style="margin-left:4px;">${s.role==='seller'?'판매자':'구매자'}</span>
+        <span style="font-size:12px; color:var(--text3); margin-left:auto;">${s.role==='seller'?'비용 '+s.cost+'만':'의향 '+s.value+'만'}</span>
+        ${s.traded ? '<span style="font-size:11px; color:var(--green); margin-left:4px;">✓거래완료</span>' : ''}
+      </div>`).join('');
+  });
+
+  const tradesRef = ref(db, 'trades');
+  onValue(tradesRef, snap => {
+    refreshTeacherTrades(snap);
+  });
+}
+
+function refreshTeacherTrades(snap) {
+  const list = document.getElementById('t-trade-list');
+  if(!snap || !snap.exists()) {
+    list.innerHTML = '<div class="empty">아직 거래가 없습니다.</div>';
+    document.getElementById('t-total').textContent = '0';
+    document.getElementById('t-round-cnt').textContent = '0';
+    document.getElementById('t-avg').textContent = '—';
+    return;
+  }
+  const trades = Object.values(snap.val());
+  document.getElementById('t-total').textContent = trades.length;
+
+  get(ref(db, 'game/state')).then(stateSnap => {
+    const state = stateSnap.val() || {session:1, round:1};
+    const cur = trades.filter(t => t.session===state.session && t.round===state.round);
+    document.getElementById('t-round-cnt').textContent = cur.length;
+    const avg = cur.length ? (cur.reduce((a,b)=>a+b.price,0)/cur.length).toFixed(1)+'만' : '—';
+    document.getElementById('t-avg').textContent = avg;
+  });
+
+  list.innerHTML = [...trades].reverse().slice(0,20).map(t => `
+    <div class="trade-row">
+      <span class="tag tag-s${t.session}" style="font-size:10px">S${t.session}R${t.round}</span>
+      <span style="font-weight:600">${t.price}만원</span>
+      <span style="color:var(--text2);flex:1;font-size:12px">${t.sellerName} → ${t.buyerName}</span>
+      <span class="profit" style="font-size:12px">+${t.sellerProfit}/${t.buyerProfit}</span>
+    </div>`).join('');
+}
+
+// ── 학생 리스너 ──
+function startStudentListeners() {
+  // 게임 상태
+  onValue(ref(db, 'game/state'), snap => {
+    if(!snap.exists()) return;
+    const s = snap.val();
+    updateHeaderState(s);
+    updateMarketStatus(s.marketOpen);
+  });
+
+  // 광장 게시물
+  onValue(ref(db, 'plaza'), snap => {
+    renderPlaza(snap);
+  });
+
+  // 채팅 요청 감지
+  onValue(ref(db, 'chatRequests/' + myName), snap => {
+    if(!snap.exists()) {
+      document.getElementById('pending-banner').style.display = 'none';
+      return;
+    }
+    const req = snap.val();
+    if(req.status === 'pending' && !chatRoomId) {
+      document.getElementById('pending-banner').style.display = 'block';
+      document.getElementById('pending-from').textContent = `${req.fromName}님(${req.fromRole==='seller'?'판매자':'구매자'})이 채팅을 요청했습니다.`;
+      document.getElementById('pending-banner').dataset.reqId = req.roomId;
+      document.getElementById('pending-banner').dataset.fromName = req.fromName;
+      document.getElementById('pending-banner').dataset.fromRole = req.fromRole;
+    }
+  });
+
+  // 채팅방 - 내가 초대된 경우 모니터링
+  onValue(ref(db, 'chatRooms'), snap => {
+    if(!snap.exists() || !chatRoomId) return;
+    const room = snap.val()[chatRoomId];
+    if(!room) return;
+    renderChatMessages(room.messages || {});
+    // 계약서 상태 업데이트
+    if(room.contract) updateContractStatus(room.contract);
+    // 협상 파기 감지
+    if(room.status === 'broken') {
+      handleChatBroken();
+    }
+  });
+
+  // 거래 공개 (시장 마감 시)
+  onValue(ref(db, 'trades'), snap => {
+    if(!snap.exists()) return;
+    // 곡선 탭이 열려있으면 업데이트
+    if(document.getElementById('s-chart').classList.contains('on')) {
+      renderChart(chartSess);
+    }
+  });
+}
+
+// ── 시장 상태 ──
+function updateHeaderState(s) {
+  document.getElementById('header-sub').textContent = `세션 ${s.session} · 라운드 ${s.round}`;
+}
+
+function updateMarketStatus(isOpen) {
+  const el = document.getElementById('m-status');
+  const badge = document.getElementById('market-badge');
+  const btn = document.getElementById('post-offer-btn');
+  if(isOpen) {
+    el.className = 'notice notice-ok';
+    el.textContent = '🟢 시장이 열렸습니다! 지금 거래하세요.';
+    badge.className = 'market-badge open';
+    badge.textContent = '🟢 열림';
+    if(btn) btn.disabled = false;
+  } else {
+    el.className = 'notice notice-warn';
+    el.textContent = '⏳ 시장이 닫혀 있습니다. 교사가 열 때까지 기다리세요.';
+    badge.className = 'market-badge';
+    badge.textContent = '🔴 닫힘';
+    if(btn) btn.disabled = true;
+  }
+}
+
+// ── 교사 제어 ──
+async function openMarket() {
+  await update(ref(db, 'game/state'), { marketOpen: true });
+  // 광장 초기화
+  await remove(ref(db, 'plaza'));
+  // 채팅방 초기화
+  await remove(ref(db, 'chatRooms'));
+  await remove(ref(db, 'chatRequests'));
+}
+
+async function closeMarket() {
+  await update(ref(db, 'game/state'), { marketOpen: false });
+}
+
+async function nextRound() {
+  const snap = await get(ref(db, 'game/state'));
+  const s = snap.val();
+  const newRound = Math.min((s.round||1)+1, 3);
+  await update(ref(db, 'game/state'), { round: newRound, marketOpen: false });
+  await remove(ref(db, 'plaza'));
+  await remove(ref(db, 'chatRooms'));
+  await remove(ref(db, 'chatRequests'));
+  // 학생 traded 초기화
+  const studSnap = await get(ref(db, 'students'));
+  if(studSnap.exists()) {
+    for(const k of Object.keys(studSnap.val())) {
+      await update(ref(db, 'students/' + k), { traded: false, inChat: false });
+    }
+  }
+}
+
+async function nextSession() {
+  const snap = await get(ref(db, 'game/state'));
+  const s = snap.val();
+  const newSession = Math.min((s.session||1)+1, 2);
+  await update(ref(db, 'game/state'), { session: newSession, round: 1, marketOpen: false });
+  await remove(ref(db, 'plaza'));
+  await remove(ref(db, 'chatRooms'));
+  await remove(ref(db, 'chatRequests'));
+  // 학생 역할 재배정 안내
+  alert('세션이 바뀌었습니다. 학생들에게 역할 탭을 확인하라고 안내해주세요.\n(학생들은 페이지를 새로고침하면 새 역할이 배정됩니다)');
+}
+
+async function resetGame() {
+  if(!confirm('모든 데이터를 초기화할까요?')) return;
+  await remove(ref(db, 'game'));
+  await remove(ref(db, 'students'));
+  await remove(ref(db, 'trades'));
+  await remove(ref(db, 'plaza'));
+  await remove(ref(db, 'chatRooms'));
+  await remove(ref(db, 'chatRequests'));
+  await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });
+  await set(ref(db, 'game/teacherOnline'), true);
+}
+
+// ── 광장 ──
+async function postMyOffer() {
+  const stateSnap = await get(ref(db, 'game/state'));
+  if(!stateSnap.exists() || !stateSnap.val().marketOpen) {
+    alert('시장이 닫혀 있습니다.'); return;
+  }
+  // 이미 거래 완료?
+  const mySnap = await get(ref(db, 'students/' + myName));
+  if(mySnap.exists() && mySnap.val().traded) {
+    alert('이미 이번 라운드 거래를 완료했습니다.'); return;
+  }
+  const price = parseFloat(document.getElementById('my-offer-price').value);
+  if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
+  const isSeller = myRole.role === 'seller';
+  if(isSeller && price < myRole.cost) { alert(`생산비용(${myRole.cost}만원)보다 낮은 가격입니다!`); return; }
+  if(!isSeller && price > myRole.value) { alert(`지불의향가격(${myRole.value}만원)보다 높은 가격입니다!`); return; }
+
+  const state = stateSnap.val();
+  // 기존 내 제안 삭제
+  const plazaSnap = await get(ref(db, 'plaza'));
+  if(plazaSnap.exists()) {
+    for(const [k, v] of Object.entries(plazaSnap.val())) {
+      if(v.name === myName) await remove(ref(db, 'plaza/' + k));
+    }
+  }
+
+  await push(ref(db, 'plaza'), {
+    name: myName, role: myRole.role, price,
+    session: state.session, round: state.round,
+    timestamp: Date.now()
+  });
+
+  document.getElementById('my-offer-price').value = '';
+  document.getElementById('my-post-status').textContent = `✅ ${price}만원에 ${isSeller?'판매':'구매'} 제안을 올렸어요!`;
+}
+
+function renderPlaza(snap) {
+  const list = document.getElementById('plaza-list');
+  if(!snap || !snap.exists()) {
+    list.innerHTML = '<div class="empty">아직 제안이 없습니다. 먼저 올려보세요!</div>'; return;
+  }
+  const posts = Object.entries(snap.val()).sort((a,b) => b[1].timestamp - a[1].timestamp);
+  list.innerHTML = posts.map(([k, p]) => {
+    const isMe = p.name === myName;
+    const isSeller = p.role === 'seller';
+    return `<div class="post-item ${isSeller?'seller-post':'buyer-post'} ${isMe?'mine':''}"
+      onclick="${isMe ? '' : `requestChat('${k}','${p.name}','${p.role}',${p.price})`}">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <span class="tag ${isSeller?'tag-seller':'tag-buyer'}">${isSeller?'판매자':'구매자'}</span>
+        <span style="font-weight:700;">${p.name}</span>
+        ${isMe ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;">내 제안</span>' : ''}
+      </div>
+      <div class="post-price">${p.price}만원에 ${isSeller?'팔아요':'사고 싶어요'}</div>
+      ${!isMe ? '<div class="post-in-chat" style="margin-top:6px;color:var(--blue);font-size:12px;">클릭해서 채팅 요청 →</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── 채팅 요청 ──
+async function requestChat(postKey, partnerName, partnerRole, price) {
+  if(chatRoomId) { alert('이미 채팅 중입니다. 현재 채팅을 먼저 종료하세요.'); return; }
+  // 상대방이 채팅 중인지 확인
+  const partnerSnap = await get(ref(db, 'students/' + partnerName));
+  if(partnerSnap.exists() && partnerSnap.val().inChat) {
+    alert('상대방이 이미 다른 채팅 중입니다.'); return;
+  }
+
+  const roomId = myName + '_' + partnerName + '_' + Date.now();
+  chatRoomId = roomId;
+  chatPartner = { name: partnerName, role: partnerRole };
+
+  // 채팅방 생성
+  await set(ref(db, 'chatRooms/' + roomId), {
+    roomId, status: 'waiting',
+    seller: myRole.role === 'seller' ? myName : partnerName,
+    buyer: myRole.role === 'buyer' ? myName : partnerName,
+    participants: [myName, partnerName],
+    suggestedPrice: price,
+    createdAt: Date.now()
+  });
+
+  // 상대방에게 요청 전송
+  await set(ref(db, 'chatRequests/' + partnerName), {
+    roomId, fromName: myName, fromRole: myRole.role,
+    status: 'pending'
+  });
+
+  // 내 상태 업데이트
+  await update(ref(db, 'students/' + myName), { inChat: true });
+
+  // 채팅방으로 이동 (상대방 수락 대기)
+  setupChatRoom(partnerName, partnerRole);
+  showTab('chat');
+  addSystemMsg('채팅 요청을 보냈습니다. 상대방이 수락하기를 기다리는 중...');
+
+  // 채팅방 상태 모니터링
+  onValue(ref(db, 'chatRooms/' + roomId), snap => {
+    if(!snap.exists()) return;
+    const room = snap.val();
+    if(room.status === 'active') {
+      addSystemMsg('채팅이 시작되었습니다! 흥정해보세요.');
+    }
+    if(room.status === 'broken') handleChatBroken();
+    renderChatMessages(room.messages || {});
+    if(room.contract) updateContractStatus(room.contract);
+  });
+}
+
+async function acceptChat() {
+  const banner = document.getElementById('pending-banner');
+  const roomId = banner.dataset.reqId;
+  const fromName = banner.dataset.fromName;
+  const fromRole = banner.dataset.fromRole;
+
+  chatRoomId = roomId;
+  chatPartner = { name: fromName, role: fromRole };
+
+  await update(ref(db, 'chatRooms/' + roomId), { status: 'active' });
+  await remove(ref(db, 'chatRequests/' + myName));
+  await update(ref(db, 'students/' + myName), { inChat: true });
+
+  banner.style.display = 'none';
+  setupChatRoom(fromName, fromRole);
+  showTab('chat');
+
+  onValue(ref(db, 'chatRooms/' + roomId), snap => {
+    if(!snap.exists()) return;
+    const room = snap.val();
+    if(room.status === 'broken') handleChatBroken();
+    renderChatMessages(room.messages || {});
+    if(room.contract) updateContractStatus(room.contract);
+  });
+}
+
+async function rejectChat() {
+  const banner = document.getElementById('pending-banner');
+  const roomId = banner.dataset.reqId;
+  const fromName = banner.dataset.fromName;
+  await remove(ref(db, 'chatRequests/' + myName));
+  await update(ref(db, 'chatRooms/' + roomId), { status: 'broken' });
+  await update(ref(db, 'students/' + fromName), { inChat: false });
+  banner.style.display = 'none';
+}
+
+function setupChatRoom(partnerName, partnerRole) {
+  const isSeller = partnerRole === 'seller';
+  document.getElementById('chat-partner-role').innerHTML = `<span class="tag ${isSeller?'tag-seller':'tag-buyer'}">${isSeller?'판매자':'구매자'}</span>`;
+  document.getElementById('chat-partner-name').textContent = partnerName;
+  document.getElementById('chat-messages').innerHTML = '';
+  document.getElementById('chat-badge').style.display = 'none';
+}
+
+function addSystemMsg(text) {
+  const el = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg-system';
+  div.textContent = text;
+  el.appendChild(div);
+  scrollChatToBottom();
+}
+
+async function sendChatMsg() {
+  if(!chatRoomId) return;
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if(!text) return;
+  input.value = '';
+  await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
+    from: myName, text, timestamp: Date.now()
+  });
+  // 채팅 배지
+  document.getElementById('chat-badge').style.display = 'none';
+}
+
+function renderChatMessages(messages) {
+  const el = document.getElementById('chat-messages');
+  const isVisible = document.getElementById('s-chat').classList.contains('on');
+  const msgs = Object.values(messages).sort((a,b) => a.timestamp - b.timestamp);
+  el.innerHTML = msgs.map(m => {
+    const isMine = m.from === myName;
+    return `<div>
+      ${!isMine ? `<div class="msg-name">${m.from}</div>` : ''}
+      <div class="msg ${isMine?'mine':'theirs'}">${escHtml(m.text)}</div>
+    </div>`;
+  }).join('');
+  scrollChatToBottom();
+  if(!isVisible && msgs.length) {
+    document.getElementById('chat-badge').style.display = 'inline';
+  }
+}
+
+function scrollChatToBottom() {
+  const el = document.getElementById('chat-messages');
+  setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
+}
+
+async function breakChat() {
+  if(!confirm('협상을 파기할까요? 두 분 모두 광장으로 돌아갑니다.')) return;
+  if(chatRoomId) {
+    await update(ref(db, 'chatRooms/' + chatRoomId), { status: 'broken' });
+  }
+}
+
+function handleChatBroken() {
+  addSystemMsg('협상이 파기되었습니다. 광장으로 돌아가세요.');
+  if(myName) update(ref(db, 'students/' + myName), { inChat: false });
+  chatRoomId = null;
+  chatPartner = null;
+  setTimeout(() => { showTab('market'); }, 1500);
+}
+
+// ── 거래계약서 ──
+function showContractModal() {
+  if(!chatRoomId) { alert('채팅 중에만 계약서를 작성할 수 있습니다.'); return; }
+  document.getElementById('contract-modal').style.display = 'flex';
+  document.getElementById('contract-status-area').innerHTML = '';
+  document.getElementById('contract-my-area').style.display = 'block';
+}
+
+function closeContractModal() {
+  document.getElementById('contract-modal').style.display = 'none';
+}
+
+async function submitContract() {
+  const price = parseFloat(document.getElementById('contract-price').value);
+  if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
+
+  await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), {
+    proposedBy: myName,
+    price,
+    status: 'pending'
+  });
+
+  // 상대방에게 시스템 메시지
+  await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
+    from: 'system', text: `📄 ${myName}님이 ${price}만원으로 계약서를 제출했습니다. 상대방의 확인을 기다리는 중...`,
+    timestamp: Date.now()
+  });
+
+  document.getElementById('contract-my-area').style.display = 'none';
+  document.getElementById('contract-status-area').innerHTML = `
+    <div class="notice notice-warn">⏳ ${price}만원으로 제출했습니다. 상대방 확인 대기 중...</div>`;
+}
+
+async function updateContractStatus(contract) {
+  if(!contract || !chatRoomId) return;
+  const isProposer = contract.proposedBy === myName;
+
+  if(contract.status === 'pending' && !isProposer) {
+    // 상대방 확인 버튼 표시
+    const area = document.getElementById('contract-status-area');
+    area.innerHTML = `
+      <div class="notice notice-warn">📄 ${contract.proposedBy}님이 <b>${contract.price}만원</b>으로 계약서를 제출했습니다.</div>
+      <button class="btn btn-green" onclick="confirmContract(${contract.price})">✅ 확인 (거래 성사)</button>
+      <button class="btn btn-red" onclick="rejectContract()">❌ 거절</button>`;
+    document.getElementById('contract-my-area').style.display = 'none';
+    document.getElementById('contract-modal').style.display = 'flex';
+    document.getElementById('chat-badge').style.display = 'inline';
+  }
+
+  if(contract.status === 'confirmed') {
+    document.getElementById('contract-modal').style.display = 'none';
+    await finalizeContract(contract.price);
+  }
+
+  if(contract.status === 'rejected') {
+    document.getElementById('contract-status-area').innerHTML = `
+      <div class="notice notice-err">계약이 거절되었습니다. 다시 협상하세요.</div>`;
+    document.getElementById('contract-my-area').style.display = 'block';
+  }
+}
+
+async function confirmContract(price) {
+  await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), { status: 'confirmed' });
+}
+
+async function rejectContract() {
+  await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), { status: 'rejected' });
+  await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
+    from: 'system', text: `계약이 거절되었습니다. 다시 협상해보세요.`,
+    timestamp: Date.now()
+  });
+  closeContractModal();
+}
+
+async function finalizeContract(price) {
+  const stateSnap = await get(ref(db, 'game/state'));
+  const state = stateSnap.val();
+  const roomSnap = await get(ref(db, 'chatRooms/' + chatRoomId));
+  const room = roomSnap.val();
+
+  const sellerName = room.seller;
+  const buyerName = room.buyer;
+
+  // 각 학생 정보 가져오기
+  const sellerSnap = await get(ref(db, 'students/' + sellerName));
+  const buyerSnap = await get(ref(db, 'students/' + buyerName));
+  const seller = sellerSnap.val();
+  const buyer = buyerSnap.val();
+
+  const sellerProfit = +(price - seller.cost).toFixed(1);
+  const buyerProfit = +(buyer.value - price).toFixed(1);
+
+  await push(ref(db, 'trades'), {
+    session: state.session, round: state.round,
+    price, sellerName, buyerName,
+    cost: seller.cost, value: buyer.value,
+    sellerProfit, buyerProfit,
+    timestamp: Date.now()
+  });
+
+  // 학생 거래 완료 표시
+  await update(ref(db, 'students/' + sellerName), { traded: true, inChat: false });
+  await update(ref(db, 'students/' + buyerName), { traded: true, inChat: false });
+
+  // 내 상태 업데이트
+  chatRoomId = null;
+  chatPartner = null;
+
+  alert(`🎉 거래 성사! ${price}만원\n내 수익: ${myRole.role==='seller' ? sellerProfit : buyerProfit}만원`);
+  showTab('market');
+}
+
+// ── 차트 ──
+function renderChart(sess) {
+  chartSess = sess;
+  window.chartSess = sess;
+  document.getElementById('cs1-btn').style.cssText = sess===1 ? 'background:var(--green);color:#fff;border-color:var(--green)' : '';
+  document.getElementById('cs2-btn').style.cssText = sess===2 ? 'background:var(--green);color:#fff;border-color:var(--green)' : '';
+
+  get(ref(db, 'trades')).then(snap => {
+    const allTrades = snap.exists() ? Object.values(snap.val()) : [];
+    const ts = allTrades.filter(t => t.session === sess);
+
+    const lowS = ts.filter(t=>t.cost===1).length;
+    const highS = ts.filter(t=>t.cost===3).length;
+    const highD = ts.filter(t=>t.value===4).length;
+    const lowD = ts.filter(t=>t.value===2).length;
+    const maxQ = Math.max(lowS+highS, highD+lowD, 1) + 2;
+
+    const supply = [{x:0,y:1},{x:lowS,y:1},{x:lowS,y:3},{x:lowS+highS,y:3},{x:lowS+highS,y:5}];
+    const demand = [{x:0,y:4},{x:highD,y:4},{x:highD,y:2},{x:highD+lowD,y:2},{x:highD+lowD,y:0}];
+    const actual = ts.map((t,i)=>({x:i+1,y:t.price}));
+    const avg = ts.length ? (ts.reduce((a,b)=>a+b.price,0)/ts.length).toFixed(1) : null;
+
+    document.getElementById('chart-sess-label').textContent = `세션 ${sess} 거래 수`;
+    document.getElementById('chart-cnt').textContent = ts.length;
+    document.getElementById('chart-avg').textContent = avg ? avg+'만' : '—';
+
+    if(sdChart) { sdChart.destroy(); sdChart = null; }
+    sdChart = new Chart(document.getElementById('sdChart'), {
+      type: 'line',
+      data: { datasets: [
+        { label:'공급곡선', data:supply, borderColor:'#1A5FA8', fill:false, tension:0, pointRadius:3, borderWidth:2.5 },
+        { label:'수요곡선', data:demand, borderColor:'#A63020', fill:false, tension:0, pointRadius:3, borderWidth:2.5 },
+        { label:'실제 거래', data:actual, borderColor:'#2D6A10', backgroundColor:'#2D6A10', showLine:false, pointRadius:7 }
+      ]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{type:'linear', title:{display:true,text:'수량 (묶음)',font:{size:12}}, min:0, max:maxQ, ticks:{stepSize:1}},
+          y:{title:{display:true,text:'가격 (만원)',font:{size:12}}, min:0, max:5, ticks:{callback:v=>v+'만'}}
+        }
+      }
+    });
+
+    const rSummary = document.getElementById('round-summary');
+    rSummary.innerHTML = [1,2,3].map(r => {
+      const rt = ts.filter(t=>t.round===r);
+      if(!rt.length) return '';
+      const ravg = (rt.reduce((a,b)=>a+b.price,0)/rt.length).toFixed(1);
+      return `<div class="trade-row">
+        <span class="tag tag-s${sess}" style="font-size:10px">라운드 ${r}</span>
+        <span style="font-weight:600">${rt.length}건</span>
+        <span style="color:var(--text2);flex:1">평균</span>
+        <span style="font-weight:700">${ravg}만원</span>
+      </div>`;
+    }).join('');
+
+    // 세션 비교
+    const s1t = allTrades.filter(t=>t.session===1);
+    const s2t = allTrades.filter(t=>t.session===2);
+    if(s1t.length && s2t.length) {
+      const avg1 = (s1t.reduce((a,b)=>a+b.price,0)/s1t.length).toFixed(1);
+      const avg2 = (s2t.reduce((a,b)=>a+b.price,0)/s2t.length).toFixed(1);
+      const diff = (parseFloat(avg2)-parseFloat(avg1)).toFixed(1);
+      const dir = diff > 0 ? '📈 상승' : diff < 0 ? '📉 하락' : '→ 동일';
+      document.getElementById('session-compare').style.display = 'block';
+      document.getElementById('session-compare-body').innerHTML = `
+        <div class="trade-row"><span class="tag tag-s1">세션 1</span><span style="font-weight:700;flex:1">평균 ${avg1}만원</span></div>
+        <div class="trade-row"><span class="tag tag-s2">세션 2</span><span style="font-weight:700;flex:1">평균 ${avg2}만원</span></div>
+        <div class="notice ${parseFloat(diff)>0?'notice-ok':'notice-warn'}" style="margin-top:8px;margin-bottom:0">
+          세션1 → 세션2: <b>${dir} (${Math.abs(diff)}만원)</b><br>
+          <span style="font-size:12px">세션2는 고비용 공급자·고의향 수요자 증가 → 균형가격 상승</span>
+        </div>`;
+    } else {
+      document.getElementById('session-compare').style.display = 'none';
+    }
+  });
+}
+
+// ── 유틸 ──
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = `notice notice-${type}`;
+  el.style.display = 'block';
+  el.textContent = text;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// 초기 로딩 완료
+document.getElementById('loading').style.display = 'none';
+</script>
+</body>
+</html>

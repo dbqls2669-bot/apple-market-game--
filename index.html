@@ -719,8 +719,11 @@ async function teacherLogin() {
   if(!gameSnap.exists()) {
     await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });
   }
+  // 비밀번호 화면 숨기고 교사 화면 표시
+  document.getElementById('s-teacher-login').classList.remove('on');
+  document.getElementById('s-teacher').classList.add('on');
   document.getElementById('tab-nav-teacher').style.display = 'flex';
-  showTeacherTab('teacher');
+  document.getElementById('tab-teacher-main').classList.add('active');
   startTeacherListeners();
   // 브라우저 닫힐 때 교사 상태 해제
   window.addEventListener('beforeunload', () => {

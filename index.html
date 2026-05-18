@@ -450,7 +450,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
         <span style="font-size:13px; color:var(--text2); white-space:nowrap;">만원에</span>
         <span id="my-role-label" style="font-size:13px; font-weight:700; color:var(--blue)">팔아요</span>
       </div>
-      <button class="btn btn-green" id="post-offer-btn" onclick="postMyOffer()">📢 광장에 올리기</button>
+      <button class="btn btn-green" id="post-offer-btn" onclick="postMyOffer()" disabled>📢 광장에 올리기</button>
       <div id="my-post-status" style="font-size:12px; color:var(--text3); margin-top:6px;"></div>
     </div>
 
@@ -627,13 +627,12 @@ const ROLE_POOL = {
 
 // ── 로컬 상태 ──
 let myName = '';
-let myRole = null; // {role, cost, value}
+let myRole = null;
 let isTeacher = false;
 let chatRoomId = null;
 let chatPartner = null;
 let chartSess = 1;
 let sdChart = null;
-let gameListeners = [];
 
 // ── 노출 전역 함수 ──
 window.showTeacherLogin = showTeacherLogin;
@@ -656,8 +655,12 @@ window.sendChatMsg = sendChatMsg;
 window.showContractModal = showContractModal;
 window.closeContractModal = closeContractModal;
 window.submitContract = submitContract;
+window.confirmContract = confirmContract;
+window.rejectContract = rejectContract;
 window.renderChart = renderChart;
-window.chartSess = chartSess;
+window.requestChat = requestChat;
+// chartSess를 getter로 노출
+Object.defineProperty(window, 'chartSess', { get: () => chartSess });
 
 // ── 초기화 ──
 document.getElementById('loading').style.display = 'none';
@@ -707,25 +710,20 @@ async function teacherLogin() {
   if(pw !== TEACHER_PW) {
     showMsg('teacher-login-notice', '비밀번호가 틀렸습니다.', 'err'); return;
   }
-  // 교사 중복 확인
   const snap = await get(ref(db, 'game/teacherOnline'));
   if(snap.exists() && snap.val() === true) {
     showMsg('teacher-login-notice', '이미 교사가 입장해 있습니다.', 'err'); return;
   }
   isTeacher = true;
   await set(ref(db, 'game/teacherOnline'), true);
-  // 게임 초기 데이터 없으면 생성
   const gameSnap = await get(ref(db, 'game/state'));
   if(!gameSnap.exists()) {
     await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });
   }
-  // 비밀번호 화면 숨기고 교사 화면 표시
-  document.getElementById('s-teacher-login').classList.remove('on');
-  document.getElementById('s-teacher').classList.add('on');
+  showScreen('s-teacher');
   document.getElementById('tab-nav-teacher').style.display = 'flex';
   document.getElementById('tab-teacher-main').classList.add('active');
   startTeacherListeners();
-  // 브라우저 닫힐 때 교사 상태 해제
   window.addEventListener('beforeunload', () => {
     set(ref(db, 'game/teacherOnline'), false);
   });
@@ -738,7 +736,6 @@ async function studentLogin() {
   const name = document.getElementById('student-name').value.trim();
   if(!name) { showMsg('student-login-notice', '이름을 입력해주세요.', 'err'); return; }
 
-  // 이름 중복 확인
   const snap = await get(ref(db, 'students'));
   if(snap.exists()) {
     const students = snap.val();
@@ -747,7 +744,6 @@ async function studentLogin() {
     }
   }
 
-  // 역할 배정
   const stateSnap = await get(ref(db, 'game/state'));
   const session = stateSnap.exists() ? (stateSnap.val().session || 1) : 1;
   const assignedRole = await assignRole(name, session);
@@ -758,7 +754,6 @@ async function studentLogin() {
   myName = name;
   myRole = assignedRole;
 
-  // Firebase에 학생 등록
   await set(ref(db, 'students/' + name), {
     name, role: myRole.role, cost: myRole.cost, value: myRole.value,
     session, online: true, inChat: false, traded: false
@@ -778,8 +773,6 @@ async function assignRole(name, session) {
   const pool = [...ROLE_POOL[session]];
   const snap = await get(ref(db, 'students'));
   const taken = snap.exists() ? Object.values(snap.val()).map(s => ({role:s.role, cost:s.cost, value:s.value})) : [];
-
-  // 남은 역할 계산
   let remaining = [...pool];
   for(const t of taken) {
     const idx = remaining.findIndex(r => r.role===t.role && r.cost===t.cost && r.value===t.value);
@@ -815,20 +808,38 @@ function renderMyRole() {
   }
 }
 
+// ── 공통: 헤더 배지 업데이트 ──
+// ★ 핵심 수정: 교사/학생 모두 이 함수로 배지 업데이트
+function updateMarketBadge(isOpen) {
+  const badge = document.getElementById('market-badge');
+  if(isOpen) {
+    badge.className = 'market-badge open';
+    badge.textContent = '🟢 열림';
+  } else {
+    badge.className = 'market-badge';
+    badge.textContent = '🔴 닫힘';
+  }
+}
+
+function updateHeaderState(s) {
+  document.getElementById('header-sub').textContent = `세션 ${s.session} · 라운드 ${s.round}`;
+  // ★ 핵심 수정: 상태 변경 때마다 배지도 함께 갱신
+  updateMarketBadge(s.marketOpen);
+}
+
 // ── 교사 리스너 ──
 function startTeacherListeners() {
-  const stateRef = ref(db, 'game/state');
-  onValue(stateRef, snap => {
+  onValue(ref(db, 'game/state'), snap => {
     if(!snap.exists()) return;
     const s = snap.val();
+    // ★ 핵심: updateHeaderState 안에서 배지까지 업데이트됨
     updateHeaderState(s);
     document.getElementById('t-sess-tag').textContent = `세션 ${s.session}`;
     document.getElementById('t-sess-tag').className = `tag tag-s${s.session}`;
     document.getElementById('t-round-label').textContent = `라운드 ${s.round}`;
   });
 
-  const studentsRef = ref(db, 'students');
-  onValue(studentsRef, snap => {
+  onValue(ref(db, 'students'), snap => {
     const list = document.getElementById('t-student-list');
     if(!snap.exists()) {
       list.innerHTML = '<div class="empty">아직 접속한 학생이 없습니다.</div>';
@@ -851,8 +862,7 @@ function startTeacherListeners() {
       </div>`).join('');
   });
 
-  const tradesRef = ref(db, 'trades');
-  onValue(tradesRef, snap => {
+  onValue(ref(db, 'trades'), snap => {
     refreshTeacherTrades(snap);
   });
 }
@@ -888,20 +898,17 @@ function refreshTeacherTrades(snap) {
 
 // ── 학생 리스너 ──
 function startStudentListeners() {
-  // 게임 상태
   onValue(ref(db, 'game/state'), snap => {
     if(!snap.exists()) return;
     const s = snap.val();
     updateHeaderState(s);
-    updateMarketStatus(s.marketOpen);
+    updateStudentMarketUI(s.marketOpen);
   });
 
-  // 광장 게시물
   onValue(ref(db, 'plaza'), snap => {
     renderPlaza(snap);
   });
 
-  // 채팅 요청 감지
   onValue(ref(db, 'chatRequests/' + myName), snap => {
     if(!snap.exists()) {
       document.getElementById('pending-banner').style.display = 'none';
@@ -917,50 +924,34 @@ function startStudentListeners() {
     }
   });
 
-  // 채팅방 - 내가 초대된 경우 모니터링
   onValue(ref(db, 'chatRooms'), snap => {
     if(!snap.exists() || !chatRoomId) return;
     const room = snap.val()[chatRoomId];
     if(!room) return;
     renderChatMessages(room.messages || {});
-    // 계약서 상태 업데이트
     if(room.contract) updateContractStatus(room.contract);
-    // 협상 파기 감지
-    if(room.status === 'broken') {
-      handleChatBroken();
-    }
+    if(room.status === 'broken') handleChatBroken();
   });
 
-  // 거래 공개 (시장 마감 시)
   onValue(ref(db, 'trades'), snap => {
     if(!snap.exists()) return;
-    // 곡선 탭이 열려있으면 업데이트
     if(document.getElementById('s-chart').classList.contains('on')) {
       renderChart(chartSess);
     }
   });
 }
 
-// ── 시장 상태 ──
-function updateHeaderState(s) {
-  document.getElementById('header-sub').textContent = `세션 ${s.session} · 라운드 ${s.round}`;
-}
-
-function updateMarketStatus(isOpen) {
+// ── 학생용 시장 UI 업데이트 (배지는 updateHeaderState에서 처리) ──
+function updateStudentMarketUI(isOpen) {
   const el = document.getElementById('m-status');
-  const badge = document.getElementById('market-badge');
   const btn = document.getElementById('post-offer-btn');
   if(isOpen) {
     el.className = 'notice notice-ok';
     el.textContent = '🟢 시장이 열렸습니다! 지금 거래하세요.';
-    badge.className = 'market-badge open';
-    badge.textContent = '🟢 열림';
     if(btn) btn.disabled = false;
   } else {
     el.className = 'notice notice-warn';
     el.textContent = '⏳ 시장이 닫혀 있습니다. 교사가 열 때까지 기다리세요.';
-    badge.className = 'market-badge';
-    badge.textContent = '🔴 닫힘';
     if(btn) btn.disabled = true;
   }
 }
@@ -968,9 +959,7 @@ function updateMarketStatus(isOpen) {
 // ── 교사 제어 ──
 async function openMarket() {
   await update(ref(db, 'game/state'), { marketOpen: true });
-  // 광장 초기화
   await remove(ref(db, 'plaza'));
-  // 채팅방 초기화
   await remove(ref(db, 'chatRooms'));
   await remove(ref(db, 'chatRequests'));
 }
@@ -987,7 +976,6 @@ async function nextRound() {
   await remove(ref(db, 'plaza'));
   await remove(ref(db, 'chatRooms'));
   await remove(ref(db, 'chatRequests'));
-  // 학생 traded 초기화
   const studSnap = await get(ref(db, 'students'));
   if(studSnap.exists()) {
     for(const k of Object.keys(studSnap.val())) {
@@ -1004,7 +992,6 @@ async function nextSession() {
   await remove(ref(db, 'plaza'));
   await remove(ref(db, 'chatRooms'));
   await remove(ref(db, 'chatRequests'));
-  // 학생 역할 재배정 안내
   alert('세션이 바뀌었습니다. 학생들에게 역할 탭을 확인하라고 안내해주세요.\n(학생들은 페이지를 새로고침하면 새 역할이 배정됩니다)');
 }
 
@@ -1026,7 +1013,6 @@ async function postMyOffer() {
   if(!stateSnap.exists() || !stateSnap.val().marketOpen) {
     alert('시장이 닫혀 있습니다.'); return;
   }
-  // 이미 거래 완료?
   const mySnap = await get(ref(db, 'students/' + myName));
   if(mySnap.exists() && mySnap.val().traded) {
     alert('이미 이번 라운드 거래를 완료했습니다.'); return;
@@ -1038,7 +1024,6 @@ async function postMyOffer() {
   if(!isSeller && price > myRole.value) { alert(`지불의향가격(${myRole.value}만원)보다 높은 가격입니다!`); return; }
 
   const state = stateSnap.val();
-  // 기존 내 제안 삭제
   const plazaSnap = await get(ref(db, 'plaza'));
   if(plazaSnap.exists()) {
     for(const [k, v] of Object.entries(plazaSnap.val())) {
@@ -1081,7 +1066,6 @@ function renderPlaza(snap) {
 // ── 채팅 요청 ──
 async function requestChat(postKey, partnerName, partnerRole, price) {
   if(chatRoomId) { alert('이미 채팅 중입니다. 현재 채팅을 먼저 종료하세요.'); return; }
-  // 상대방이 채팅 중인지 확인
   const partnerSnap = await get(ref(db, 'students/' + partnerName));
   if(partnerSnap.exists() && partnerSnap.val().inChat) {
     alert('상대방이 이미 다른 채팅 중입니다.'); return;
@@ -1091,7 +1075,6 @@ async function requestChat(postKey, partnerName, partnerRole, price) {
   chatRoomId = roomId;
   chatPartner = { name: partnerName, role: partnerRole };
 
-  // 채팅방 생성
   await set(ref(db, 'chatRooms/' + roomId), {
     roomId, status: 'waiting',
     seller: myRole.role === 'seller' ? myName : partnerName,
@@ -1101,21 +1084,17 @@ async function requestChat(postKey, partnerName, partnerRole, price) {
     createdAt: Date.now()
   });
 
-  // 상대방에게 요청 전송
   await set(ref(db, 'chatRequests/' + partnerName), {
     roomId, fromName: myName, fromRole: myRole.role,
     status: 'pending'
   });
 
-  // 내 상태 업데이트
   await update(ref(db, 'students/' + myName), { inChat: true });
 
-  // 채팅방으로 이동 (상대방 수락 대기)
   setupChatRoom(partnerName, partnerRole);
   showTab('chat');
   addSystemMsg('채팅 요청을 보냈습니다. 상대방이 수락하기를 기다리는 중...');
 
-  // 채팅방 상태 모니터링
   onValue(ref(db, 'chatRooms/' + roomId), snap => {
     if(!snap.exists()) return;
     const room = snap.val();
@@ -1190,7 +1169,6 @@ async function sendChatMsg() {
   await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
     from: myName, text, timestamp: Date.now()
   });
-  // 채팅 배지
   document.getElementById('chat-badge').style.display = 'none';
 }
 
@@ -1200,6 +1178,9 @@ function renderChatMessages(messages) {
   const msgs = Object.values(messages).sort((a,b) => a.timestamp - b.timestamp);
   el.innerHTML = msgs.map(m => {
     const isMine = m.from === myName;
+    if(m.from === 'system') {
+      return `<div class="msg-system">${escHtml(m.text)}</div>`;
+    }
     return `<div>
       ${!isMine ? `<div class="msg-name">${m.from}</div>` : ''}
       <div class="msg ${isMine?'mine':'theirs'}">${escHtml(m.text)}</div>
@@ -1253,7 +1234,6 @@ async function submitContract() {
     status: 'pending'
   });
 
-  // 상대방에게 시스템 메시지
   await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
     from: 'system', text: `📄 ${myName}님이 ${price}만원으로 계약서를 제출했습니다. 상대방의 확인을 기다리는 중...`,
     timestamp: Date.now()
@@ -1269,7 +1249,6 @@ async function updateContractStatus(contract) {
   const isProposer = contract.proposedBy === myName;
 
   if(contract.status === 'pending' && !isProposer) {
-    // 상대방 확인 버튼 표시
     const area = document.getElementById('contract-status-area');
     area.innerHTML = `
       <div class="notice notice-warn">📄 ${contract.proposedBy}님이 <b>${contract.price}만원</b>으로 계약서를 제출했습니다.</div>
@@ -1306,15 +1285,18 @@ async function rejectContract() {
 }
 
 async function finalizeContract(price) {
+  // 중복 실행 방지
+  if(!chatRoomId) return;
+  const currentRoomId = chatRoomId;
+
   const stateSnap = await get(ref(db, 'game/state'));
   const state = stateSnap.val();
-  const roomSnap = await get(ref(db, 'chatRooms/' + chatRoomId));
+  const roomSnap = await get(ref(db, 'chatRooms/' + currentRoomId));
   const room = roomSnap.val();
 
   const sellerName = room.seller;
   const buyerName = room.buyer;
 
-  // 각 학생 정보 가져오기
   const sellerSnap = await get(ref(db, 'students/' + sellerName));
   const buyerSnap = await get(ref(db, 'students/' + buyerName));
   const seller = sellerSnap.val();
@@ -1331,11 +1313,9 @@ async function finalizeContract(price) {
     timestamp: Date.now()
   });
 
-  // 학생 거래 완료 표시
   await update(ref(db, 'students/' + sellerName), { traded: true, inChat: false });
   await update(ref(db, 'students/' + buyerName), { traded: true, inChat: false });
 
-  // 내 상태 업데이트
   chatRoomId = null;
   chatPartner = null;
 
@@ -1346,7 +1326,6 @@ async function finalizeContract(price) {
 // ── 차트 ──
 function renderChart(sess) {
   chartSess = sess;
-  window.chartSess = sess;
   document.getElementById('cs1-btn').style.cssText = sess===1 ? 'background:var(--green);color:#fff;border-color:var(--green)' : '';
   document.getElementById('cs2-btn').style.cssText = sess===2 ? 'background:var(--green);color:#fff;border-color:var(--green)' : '';
 
@@ -1400,7 +1379,6 @@ function renderChart(sess) {
       </div>`;
     }).join('');
 
-    // 세션 비교
     const s1t = allTrades.filter(t=>t.session===1);
     const s2t = allTrades.filter(t=>t.session===2);
     if(s1t.length && s2t.length) {
@@ -1432,11 +1410,8 @@ function showMsg(id, text, type) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-
-// 초기 로딩 완료
-document.getElementById('loading').style.display = 'none';
 </script>
 </body>
 </html>

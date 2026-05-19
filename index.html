@@ -446,8 +446,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
     <div class="card">
       <div class="card-title">내 제안 올리기</div>
       <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-        <input type="number" id="my-offer-price" min="0.5" max="5" step="0.1" placeholder="가격" style="flex:1; width:auto;">
-        <span style="font-size:13px; color:var(--text2); white-space:nowrap;">만원에</span>
+        <input type="number" id="my-offer-price" min="1000" max="100000" step="100" placeholder="예: 25000" style="flex:1; width:auto;">
+        <span style="font-size:13px; color:var(--text2); white-space:nowrap;">원에</span>
         <span id="my-role-label" style="font-size:13px; font-weight:700; color:var(--blue)">팔아요</span>
       </div>
       <button class="btn btn-green" id="post-offer-btn" onclick="postMyOffer()" disabled>📢 광장에 올리기</button>
@@ -561,8 +561,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
       <p style="font-size:13px; color:var(--text2); margin-bottom:12px;">합의한 가격을 입력하고 제출하세요. 상대방이 확인하면 거래가 성사됩니다.</p>
       <div class="input-row" style="margin-bottom:14px;">
         <label>합의 가격</label>
-        <input type="number" id="contract-price" min="0.5" max="5" step="0.1" placeholder="0.0">
-        <span style="font-size:13px; color:var(--text2);">만원</span>
+        <input type="number" id="contract-price" min="1000" max="100000" step="100" placeholder="예: 25000">
+        <span style="font-size:13px; color:var(--text2);">원</span>
       </div>
       <button class="btn btn-green" onclick="submitContract()">제출하기</button>
     </div>
@@ -674,17 +674,17 @@ function showScreen(id) {
 }
 
 function showTab(tab) {
+  // ★ 수정: 모든 화면을 끄고 학생 탭 화면만 켜기
+  ['s-home','s-teacher-login','s-student-login','s-teacher',
+   's-role','s-market','s-chat','s-chart'].forEach(id => {
+    document.getElementById(id)?.classList.remove('on');
+  });
   const tabs = ['role','market','chat','chart'];
   tabs.forEach(t => {
-    const s = document.getElementById('s-'+t);
-    const b = document.getElementById('tab-'+t);
-    if(s) s.classList.remove('on');
-    if(b) b.classList.remove('active');
+    document.getElementById('tab-'+t)?.classList.remove('active');
   });
-  const s = document.getElementById('s-'+tab);
-  const b = document.getElementById('tab-'+tab);
-  if(s) s.classList.add('on');
-  if(b) b.classList.add('active');
+  document.getElementById('s-'+tab)?.classList.add('on');
+  document.getElementById('tab-'+tab)?.classList.add('active');
   if(tab === 'chat') {
     document.getElementById('chat-badge').style.display = 'none';
     scrollChatToBottom();
@@ -1019,6 +1019,12 @@ async function postMyOffer() {
   }
   const price = parseFloat(document.getElementById('my-offer-price').value);
   if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
+  // ★ 비정상 입력 차단: 만원 단위 기준 10만원 초과 입력 방지
+  if(price > 10) {
+    alert(`가격은 만원 단위로 입력하세요.\n예) 2만원 → "2", 2.5만원 → "2.5"\n\n지금 입력한 ${price}는 ${price}만원으로 처리됩니다. 맞으면 다시 입력해주세요.`);
+    document.getElementById('my-offer-price').value = '';
+    return;
+  }
   const isSeller = myRole.role === 'seller';
   if(isSeller && price < myRole.cost) { alert(`생산비용(${myRole.cost}만원)보다 낮은 가격입니다!`); return; }
   if(!isSeller && price > myRole.value) { alert(`지불의향가격(${myRole.value}만원)보다 높은 가격입니다!`); return; }
@@ -1227,6 +1233,12 @@ function closeContractModal() {
 async function submitContract() {
   const price = parseFloat(document.getElementById('contract-price').value);
   if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
+  // ★ 비정상 입력 차단
+  if(price > 10) {
+    alert(`가격은 만원 단위로 입력하세요.\n예) 2만원 → "2", 2.5만원 → "2.5"\n\n${price}만원은 ${(price*10000).toLocaleString()}원입니다. 맞으면 다시 입력하세요.`);
+    document.getElementById('contract-price').value = '';
+    return;
+  }
 
   await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), {
     proposedBy: myName,
@@ -1284,43 +1296,51 @@ async function rejectContract() {
   closeContractModal();
 }
 
+let _finalizing = false;
+
 async function finalizeContract(price) {
-  // 중복 실행 방지
-  if(!chatRoomId) return;
+  if(_finalizing || !chatRoomId) return;
+  _finalizing = true;
   const currentRoomId = chatRoomId;
-
-  const stateSnap = await get(ref(db, 'game/state'));
-  const state = stateSnap.val();
-  const roomSnap = await get(ref(db, 'chatRooms/' + currentRoomId));
-  const room = roomSnap.val();
-
-  const sellerName = room.seller;
-  const buyerName = room.buyer;
-
-  const sellerSnap = await get(ref(db, 'students/' + sellerName));
-  const buyerSnap = await get(ref(db, 'students/' + buyerName));
-  const seller = sellerSnap.val();
-  const buyer = buyerSnap.val();
-
-  const sellerProfit = +(price - seller.cost).toFixed(1);
-  const buyerProfit = +(buyer.value - price).toFixed(1);
-
-  await push(ref(db, 'trades'), {
-    session: state.session, round: state.round,
-    price, sellerName, buyerName,
-    cost: seller.cost, value: buyer.value,
-    sellerProfit, buyerProfit,
-    timestamp: Date.now()
-  });
-
-  await update(ref(db, 'students/' + sellerName), { traded: true, inChat: false });
-  await update(ref(db, 'students/' + buyerName), { traded: true, inChat: false });
-
   chatRoomId = null;
   chatPartner = null;
 
-  alert(`🎉 거래 성사! ${price}만원\n내 수익: ${myRole.role==='seller' ? sellerProfit : buyerProfit}만원`);
-  showTab('market');
+  try {
+    const roomSnap = await get(ref(db, 'chatRooms/' + currentRoomId));
+    const room = roomSnap.val();
+    if(!room || room.finalized) return;
+    await update(ref(db, 'chatRooms/' + currentRoomId), { finalized: true });
+
+    const stateSnap = await get(ref(db, 'game/state'));
+    const state = stateSnap.val();
+
+    const sellerName = room.seller;
+    const buyerName = room.buyer;
+
+    const sellerSnap = await get(ref(db, 'students/' + sellerName));
+    const buyerSnap = await get(ref(db, 'students/' + buyerName));
+    const seller = sellerSnap.val();
+    const buyer = buyerSnap.val();
+
+    const sellerProfit = +(price - seller.cost).toFixed(1);
+    const buyerProfit = +(buyer.value - price).toFixed(1);
+
+    await push(ref(db, 'trades'), {
+      session: state.session, round: state.round,
+      price, sellerName, buyerName,
+      cost: seller.cost, value: buyer.value,
+      sellerProfit, buyerProfit,
+      timestamp: Date.now()
+    });
+
+    await update(ref(db, 'students/' + sellerName), { traded: true, inChat: false });
+    await update(ref(db, 'students/' + buyerName), { traded: true, inChat: false });
+
+    alert(`🎉 거래 성사! ${price}만원\n내 수익: ${myRole.role==='seller' ? sellerProfit : buyerProfit}만원`);
+    showTab('market');
+  } finally {
+    _finalizing = false;
+  }
 }
 
 // ── 차트 ──

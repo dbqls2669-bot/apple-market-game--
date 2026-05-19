@@ -710,12 +710,7 @@ async function teacherLogin() {
   if(pw !== TEACHER_PW) {
     showMsg('teacher-login-notice', '비밀번호가 틀렸습니다.', 'err'); return;
   }
-  const snap = await get(ref(db, 'game/teacherOnline'));
-  if(snap.exists() && snap.val() === true) {
-    showMsg('teacher-login-notice', '이미 교사가 입장해 있습니다.', 'err'); return;
-  }
   isTeacher = true;
-  await set(ref(db, 'game/teacherOnline'), true);
   const gameSnap = await get(ref(db, 'game/state'));
   if(!gameSnap.exists()) {
     await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });

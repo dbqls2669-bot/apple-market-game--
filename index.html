@@ -939,6 +939,22 @@ function startStudentListeners() {
       renderChart(chartSess);
     }
   });
+
+  // ★ 내 역할 변경 감지 (라운드 2 스왑 등)
+  onValue(ref(db, 'students/' + myName), snap => {
+    if(!snap.exists()) return;
+    const stu = snap.val();
+    // 역할이 실제로 바뀐 경우에만 업데이트
+    if(stu.role !== myRole.role || stu.cost !== myRole.cost || stu.value !== myRole.value) {
+      myRole = { role: stu.role, cost: stu.cost, value: stu.value };
+      renderMyRole();
+      document.getElementById('my-role-label').textContent = myRole.role === 'seller' ? '팔아요' : '사고 싶어요';
+      // 역할 탭으로 이동해서 알려주기
+      showTab('role');
+      document.getElementById('role-notice').style.display = 'block';
+      document.getElementById('role-notice').textContent = '🔄 라운드가 바뀌어 역할이 변경되었습니다!';
+    }
+  });
 }
 
 // ── 학생용 시장 UI 업데이트 (배지는 updateHeaderState에서 처리) ──
@@ -976,10 +992,22 @@ async function nextRound() {
   await remove(ref(db, 'plaza'));
   await remove(ref(db, 'chatRooms'));
   await remove(ref(db, 'chatRequests'));
+
   const studSnap = await get(ref(db, 'students'));
   if(studSnap.exists()) {
-    for(const k of Object.keys(studSnap.val())) {
-      await update(ref(db, 'students/' + k), { traded: false, inChat: false });
+    for(const [k, stu] of Object.entries(studSnap.val())) {
+      // ★ 라운드 2로 넘어갈 때 판매자↔구매자 스왑
+      if(newRound === 2) {
+        const swapped = stu.role === 'seller'
+          ? { role: 'buyer',  cost: 0, value: stu.cost === 1 ? 4 : 2 }
+          : { role: 'seller', cost: stu.value === 4 ? 1 : 3, value: 0 };
+        await update(ref(db, 'students/' + k), {
+          role: swapped.role, cost: swapped.cost, value: swapped.value,
+          traded: false, inChat: false
+        });
+      } else {
+        await update(ref(db, 'students/' + k), { traded: false, inChat: false });
+      }
     }
   }
 }

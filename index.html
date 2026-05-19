@@ -234,10 +234,10 @@ input:focus { outline: none; border-color: var(--blue); background: #fff; }
 .post-in-chat { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
 /* Chat */
-.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 200px); min-height: 300px; }
+.chat-wrap { display: flex; flex-direction: column; height: calc(100vh - 160px); min-height: 300px; }
 .chat-header {
   background: var(--gray); border-radius: var(--radius-sm);
-  padding: 10px 14px; margin-bottom: 10px;
+  padding: 7px 12px; margin-bottom: 7px;
   display: flex; align-items: center; gap: 10px;
 }
 .chat-messages {
@@ -246,9 +246,11 @@ input:focus { outline: none; border-color: var(--blue); background: #fff; }
   padding: 12px; margin-bottom: 8px;
   background: var(--gray);
   display: flex; flex-direction: column; gap: 8px;
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 .msg {
-  max-width: 80%; padding: 9px 13px;
+  max-width: 80%; width: fit-content; padding: 9px 13px;
   border-radius: 13px; font-size: 14px; line-height: 1.5;
 }
 .msg.mine { background: var(--green); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
@@ -404,6 +406,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
         <button class="btn btn-sm" onclick="nextSession()">다음 세션 →</button>
         <button class="btn btn-sm" style="color:var(--red)" onclick="resetGame()">초기화</button>
       </div>
+      <button class="btn btn-amber" onclick="publishRanking()">🏆 최종 순위 공개</button>
     </div>
 
     <div class="metric-grid g3">
@@ -472,7 +475,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   </div>
 
   <!-- ⑦ 채팅 -->
-  <div id="s-chat" class="screen" style="padding:14px;">
+  <div id="s-chat" class="screen" style="padding:8px 14px 4px;">
     <div class="chat-header">
       <span id="chat-partner-role"></span>
       <span id="chat-partner-name" style="font-weight:700;"></span>
@@ -485,8 +488,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
         <button class="btn btn-green" onclick="sendChatMsg()">전송</button>
       </div>
     </div>
-    <hr>
-    <button class="btn btn-amber" onclick="showContractModal()">📄 거래계약서 작성</button>
+    <hr style="margin:6px 0;">
+    <button class="btn btn-amber" style="margin-bottom:0;" onclick="showContractModal()">📄 거래계약서 작성</button>
   </div>
 
   <!-- ⑧ 곡선 탭 -->
@@ -526,6 +529,24 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   </div>
 </div>
 
+  <!-- ⑨ 교사 채팅 모니터링 -->
+  <div id="s-teacher-chat" class="screen">
+    <div class="section-sep">실시간 채팅 모니터링</div>
+    <div id="t-chat-monitor-list">
+      <div class="empty">현재 진행 중인 채팅이 없습니다.</div>
+    </div>
+  </div>
+
+  <!-- ⑩ 순위 화면 -->
+  <div id="s-ranking" class="screen">
+    <div style="text-align:center; padding:20px 0 10px;">
+      <div style="font-size:40px;">🏆</div>
+      <div style="font-size:18px; font-weight:700; margin-top:6px;">최종 순위</div>
+      <div style="font-size:13px; color:var(--text2); margin-top:4px;">전체 세션 누적 이익 기준</div>
+    </div>
+    <div id="ranking-list"><div class="empty">아직 순위가 공개되지 않았습니다.</div></div>
+  </div>
+
 <!-- 하단 탭 (학생용) -->
 <nav class="tab-nav" id="tab-nav-student" style="display:none">
   <button class="tab-btn active" id="tab-role" onclick="showTab('role')">
@@ -540,12 +561,18 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   <button class="tab-btn" id="tab-chart" onclick="showTab('chart'); renderChart(chartSess)">
     <span class="ti ti-chart-line"></span>곡선
   </button>
+  <button class="tab-btn" id="tab-ranking" onclick="showTab('ranking')">
+    <span class="ti ti-trophy"></span>순위
+  </button>
 </nav>
 
 <!-- 하단 탭 (교사용) -->
 <nav class="tab-nav" id="tab-nav-teacher" style="display:none">
   <button class="tab-btn active" id="tab-teacher-main" onclick="showTeacherTab('teacher')">
     <span class="ti ti-settings"></span>관리
+  </button>
+  <button class="tab-btn" id="tab-teacher-chat" onclick="showTeacherTab('teacher-chat')">
+    <span class="ti ti-messages"></span>채팅감시
   </button>
   <button class="tab-btn" id="tab-teacher-chart" onclick="showTeacherTab('chart'); renderChart(chartSess)">
     <span class="ti ti-chart-line"></span>곡선
@@ -573,7 +600,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 <!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, push, onValue, remove, update, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getDatabase, ref, set, get, push, onValue, remove, update, off, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCuRqQinRrzUT1ZRisAOnf0pxg0E9jHLbg",
@@ -590,40 +617,41 @@ const db = getDatabase(app);
 
 // ── 상수 ──
 const TEACHER_PW = 'apple2025';
-const ROLE_POOL = {
-  1: [
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:2},
-    {role:'buyer', cost:0, value:2},
-    {role:'buyer', cost:0, value:2},
-    {role:'buyer', cost:0, value:2},
-  ],
-  2: [
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:1, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'seller', cost:3, value:0},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:4},
-    {role:'buyer', cost:0, value:2},
-    {role:'buyer', cost:0, value:2},
-  ]
-};
+// 라운드 1: 판매자 1만원 5명, 3만원 2명 / 구매자 4만원 2명, 2만원 5명
+const ROLE_POOL_R1 = [
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:2},
+  {role:'buyer', cost:0, value:2},
+  {role:'buyer', cost:0, value:2},
+  {role:'buyer', cost:0, value:2},
+  {role:'buyer', cost:0, value:2},
+];
+
+// 라운드 2: 판매자 1만원 2명, 3만원 5명 / 구매자 4만원 5명, 2만원 2명
+const ROLE_POOL_R2 = [
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:1, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'seller', cost:3, value:0},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:4},
+  {role:'buyer', cost:0, value:2},
+  {role:'buyer', cost:0, value:2},
+];
 
 // ── 로컬 상태 ──
 let myName = '';
@@ -676,10 +704,10 @@ function showScreen(id) {
 function showTab(tab) {
   // ★ 수정: 모든 화면을 끄고 학생 탭 화면만 켜기
   ['s-home','s-teacher-login','s-student-login','s-teacher',
-   's-role','s-market','s-chat','s-chart'].forEach(id => {
+   's-role','s-market','s-chat','s-chart','s-ranking'].forEach(id => {
     document.getElementById(id)?.classList.remove('on');
   });
-  const tabs = ['role','market','chat','chart'];
+  const tabs = ['role','market','chat','chart','ranking'];
   tabs.forEach(t => {
     document.getElementById('tab-'+t)?.classList.remove('active');
   });
@@ -692,13 +720,15 @@ function showTab(tab) {
 }
 
 function showTeacherTab(tab) {
-  ['teacher','chart'].forEach(t => {
+  ['teacher','teacher-chat','chart'].forEach(t => {
     document.getElementById('s-'+t)?.classList.remove('on');
   });
   document.getElementById('tab-teacher-main')?.classList.remove('active');
+  document.getElementById('tab-teacher-chat')?.classList.remove('active');
   document.getElementById('tab-teacher-chart')?.classList.remove('active');
   document.getElementById('s-'+tab)?.classList.add('on');
   if(tab === 'teacher') document.getElementById('tab-teacher-main').classList.add('active');
+  else if(tab === 'teacher-chat') document.getElementById('tab-teacher-chat').classList.add('active');
   else document.getElementById('tab-teacher-chart').classList.add('active');
 }
 
@@ -765,7 +795,8 @@ async function studentLogin() {
 }
 
 async function assignRole(name, session) {
-  const pool = [...ROLE_POOL[session]];
+  // 로그인 시 항상 라운드1 풀로 역할 배정
+  const pool = [...ROLE_POOL_R1];
   const snap = await get(ref(db, 'students'));
   const taken = snap.exists() ? Object.values(snap.val()).map(s => ({role:s.role, cost:s.cost, value:s.value})) : [];
   let remaining = [...pool];
@@ -860,6 +891,57 @@ function startTeacherListeners() {
   onValue(ref(db, 'trades'), snap => {
     refreshTeacherTrades(snap);
   });
+
+  // ★ 채팅방 실시간 모니터링
+  onValue(ref(db, 'chatRooms'), snap => {
+    renderTeacherChatMonitor(snap);
+  });
+}
+
+
+function renderTeacherChatMonitor(snap) {
+  const wrap = document.getElementById('t-chat-monitor-list');
+  if(!wrap) return;
+  if(!snap || !snap.exists()) {
+    wrap.innerHTML = '<div class="empty">현재 진행 중인 채팅이 없습니다.</div>';
+    return;
+  }
+  const rooms = Object.entries(snap.val())
+    .filter(([k, r]) => r.status === 'active' || r.status === 'waiting')
+    .sort((a, b) => (b[1].createdAt||0) - (a[1].createdAt||0));
+
+  if(!rooms.length) {
+    wrap.innerHTML = '<div class="empty">현재 진행 중인 채팅이 없습니다.</div>';
+    return;
+  }
+
+  wrap.innerHTML = rooms.map(([roomId, room]) => {
+    const msgs = room.messages ? Object.values(room.messages).sort((a,b) => a.timestamp - b.timestamp) : [];
+    const statusLabel = room.status === 'active' ? '<span style="color:var(--green);font-weight:700;">● 채팅 중</span>' : '<span style="color:var(--amber);font-weight:700;">● 수락 대기</span>';
+    const contractBadge = room.contract
+      ? `<span style="font-size:11px;background:var(--amber-light);color:var(--amber);padding:2px 8px;border-radius:999px;margin-left:6px;">📄 계약서 ${room.contract.status === 'confirmed' ? '✅완료' : '검토중'}</span>`
+      : '';
+    const msgHtml = msgs.map(m => {
+      if(m.from === 'system') return `<div class="msg-system">${escHtml(m.text)}</div>`;
+      const isLeft = m.from === room.seller;
+      return `<div style="display:flex;flex-direction:column;align-items:${isLeft?'flex-start':'flex-end'};">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:2px;">${m.from}</div>
+        <div class="msg ${isLeft?'theirs':'mine'}" style="font-size:13px;">${escHtml(m.text)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        ${statusLabel}
+        <span class="tag tag-seller">${room.seller}</span>
+        <span style="color:var(--text3);font-size:12px;">↔</span>
+        <span class="tag tag-buyer">${room.buyer}</span>
+        ${contractBadge}
+      </div>
+      <div style="background:var(--gray);border-radius:var(--radius-sm);padding:10px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;">
+        ${msgHtml || '<div class="empty" style="padding:8px;">아직 메시지가 없습니다.</div>'}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function refreshTeacherTrades(snap) {
@@ -935,6 +1017,15 @@ function startStudentListeners() {
     }
   });
 
+  // 순위 공개 감지
+  onValue(ref(db, 'ranking'), snap => {
+    if(!snap || !snap.exists()) return;
+    renderRanking(snap);
+    // 순위 탭으로 자동 이동
+    showTab('ranking');
+    document.getElementById('tab-ranking').style.color = 'var(--amber)';
+  });
+
   // ★ 내 역할 변경 감지 (라운드 2 스왑 등)
   onValue(ref(db, 'students/' + myName), snap => {
     if(!snap.exists()) return;
@@ -982,7 +1073,7 @@ async function closeMarket() {
 async function nextRound() {
   const snap = await get(ref(db, 'game/state'));
   const s = snap.val();
-  const newRound = Math.min((s.round||1)+1, 3);
+  const newRound = Math.min((s.round||1)+1, 2);
   await update(ref(db, 'game/state'), { round: newRound, marketOpen: false });
   await remove(ref(db, 'plaza'));
   await remove(ref(db, 'chatRooms'));
@@ -990,21 +1081,40 @@ async function nextRound() {
 
   const studSnap = await get(ref(db, 'students'));
   if(studSnap.exists()) {
-    for(const [k, stu] of Object.entries(studSnap.val())) {
-      // ★ 라운드 2로 넘어갈 때 판매자↔구매자 스왑
-      if(newRound === 2) {
-        const swapped = stu.role === 'seller'
-          ? { role: 'buyer',  cost: 0, value: stu.cost === 1 ? 4 : 2 }
-          : { role: 'seller', cost: stu.value === 4 ? 1 : 3, value: 0 };
-        await update(ref(db, 'students/' + k), {
-          role: swapped.role, cost: swapped.cost, value: swapped.value,
-          traded: false, inChat: false
-        });
-      } else {
+    if(newRound === 2) {
+      // ★ 라운드 2: 현재 역할 유지, 비용/가격만 R2 풀로 재배정
+      // 판매자/구매자 각각 R2 풀을 미리 섞어서 순서대로 배정 (중복 없음)
+      const students = Object.entries(studSnap.val());
+      const sellers = students.filter(([,s]) => s.role === 'seller');
+      const buyers  = students.filter(([,s]) => s.role === 'buyer');
+
+      const sellerPool = shuffle([...ROLE_POOL_R2.filter(r => r.role === 'seller')]);
+      const buyerPool  = shuffle([...ROLE_POOL_R2.filter(r => r.role === 'buyer')]);
+
+      for(let i = 0; i < sellers.length; i++) {
+        const [k] = sellers[i];
+        const nd = sellerPool[i % sellerPool.length];
+        await update(ref(db, 'students/' + k), { cost: nd.cost, value: nd.value, traded: false, inChat: false });
+      }
+      for(let i = 0; i < buyers.length; i++) {
+        const [k] = buyers[i];
+        const nd = buyerPool[i % buyerPool.length];
+        await update(ref(db, 'students/' + k), { cost: nd.cost, value: nd.value, traded: false, inChat: false });
+      }
+    } else {
+      for(const k of Object.keys(studSnap.val())) {
         await update(ref(db, 'students/' + k), { traded: false, inChat: false });
       }
     }
   }
+}
+
+function shuffle(arr) {
+  for(let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }
 
 async function nextSession() {
@@ -1026,8 +1136,8 @@ async function resetGame() {
   await remove(ref(db, 'plaza'));
   await remove(ref(db, 'chatRooms'));
   await remove(ref(db, 'chatRequests'));
+  await remove(ref(db, 'ranking'));
   await set(ref(db, 'game/state'), { session:1, round:1, marketOpen:false });
-  await set(ref(db, 'game/teacherOnline'), true);
 }
 
 // ── 광장 ──
@@ -1228,12 +1338,16 @@ async function breakChat() {
   }
 }
 
+let _brokenHandled = false;
 function handleChatBroken() {
+  if(_brokenHandled) return;
+  _brokenHandled = true;
+  closeContractModal();
   addSystemMsg('협상이 파기되었습니다. 광장으로 돌아가세요.');
   if(myName) update(ref(db, 'students/' + myName), { inChat: false });
   chatRoomId = null;
   chatPartner = null;
-  setTimeout(() => { showTab('market'); }, 1500);
+  setTimeout(() => { showTab('market'); _brokenHandled = false; }, 1500);
 }
 
 // ── 거래계약서 ──
@@ -1290,9 +1404,7 @@ async function updateContractStatus(contract) {
   }
 
   if(contract.status === 'rejected') {
-    document.getElementById('contract-status-area').innerHTML = `
-      <div class="notice notice-err">계약이 거절되었습니다. 다시 협상하세요.</div>`;
-    document.getElementById('contract-my-area').style.display = 'block';
+    closeContractModal();
   }
 }
 
@@ -1302,10 +1414,6 @@ async function confirmContract(price) {
 
 async function rejectContract() {
   await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), { status: 'rejected' });
-  await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
-    from: 'system', text: `계약이 거절되었습니다. 다시 협상해보세요.`,
-    timestamp: Date.now()
-  });
   closeContractModal();
 }
 
@@ -1319,10 +1427,17 @@ async function finalizeContract(price) {
   chatPartner = null;
 
   try {
+    // ★ Transaction으로 원자적 처리 - 동시 실행 완전 차단
+    let alreadyFinalized = false;
+    await runTransaction(ref(db, 'chatRooms/' + currentRoomId + '/finalized'), (current) => {
+      if(current === true) { alreadyFinalized = true; return current; }
+      return true;
+    });
+    if(alreadyFinalized) return;
+
     const roomSnap = await get(ref(db, 'chatRooms/' + currentRoomId));
     const room = roomSnap.val();
-    if(!room || room.finalized) return;
-    await update(ref(db, 'chatRooms/' + currentRoomId), { finalized: true });
+    if(!room) return;
 
     const stateSnap = await get(ref(db, 'game/state'));
     const state = stateSnap.val();
@@ -1354,6 +1469,75 @@ async function finalizeContract(price) {
   } finally {
     _finalizing = false;
   }
+}
+
+// ── 순위 ──
+window.publishRanking = publishRanking;
+
+async function publishRanking() {
+  if(!confirm('최종 순위를 공개할까요? 모든 학생 화면에 순위가 표시됩니다.')) return;
+  // trades에서 학생별 누적 이익 계산
+  const tradesSnap = await get(ref(db, 'trades'));
+  const studentsSnap = await get(ref(db, 'students'));
+  if(!tradesSnap.exists()) { alert('거래 내역이 없습니다.'); return; }
+
+  const trades = Object.values(tradesSnap.val());
+  const profits = {}; // name → totalProfit
+
+  // 모든 학생 초기화
+  if(studentsSnap.exists()) {
+    Object.values(studentsSnap.val()).forEach(s => { profits[s.name] = 0; });
+  }
+
+  // 거래별 이익 합산
+  trades.forEach(t => {
+    if(profits[t.sellerName] !== undefined) profits[t.sellerName] += t.sellerProfit;
+    else profits[t.sellerName] = t.sellerProfit;
+    if(profits[t.buyerName] !== undefined) profits[t.buyerName] += t.buyerProfit;
+    else profits[t.buyerName] = t.buyerProfit;
+  });
+
+  // 순위 데이터 저장
+  const ranking = Object.entries(profits)
+    .map(([name, profit]) => ({ name, profit: +profit.toFixed(1) }))
+    .sort((a, b) => b.profit - a.profit);
+
+  await set(ref(db, 'ranking'), { data: ranking, publishedAt: Date.now() });
+  alert('순위가 공개되었습니다!');
+}
+
+function renderRanking(snap) {
+  const list = document.getElementById('ranking-list');
+  if(!list) return;
+  if(!snap || !snap.exists()) {
+    list.innerHTML = '<div class="empty">아직 순위가 공개되지 않았습니다.</div>';
+    return;
+  }
+  const { data: ranking } = snap.val();
+  const medals = ['🥇','🥈','🥉'];
+  const maxProfit = ranking[0]?.profit || 1;
+
+  list.innerHTML = ranking.map((r, i) => {
+    const isMe = r.name === myName;
+    const barWidth = Math.max(Math.round((r.profit / maxProfit) * 100), 4);
+    const profitColor = r.profit > 0 ? 'var(--green)' : r.profit < 0 ? 'var(--red)' : 'var(--text3)';
+    return `<div style="
+      padding: 12px 14px; margin-bottom: 8px;
+      background: ${isMe ? 'var(--green-light)' : 'var(--gray)'};
+      border-radius: var(--radius-sm);
+      border: ${isMe ? '2px solid var(--green)' : '1px solid var(--border)'};
+    ">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+        <span style="font-size:22px; min-width:30px;">${medals[i] || (i+1)+'위'}</span>
+        <span style="font-weight:700; font-size:15px;">${r.name}</span>
+        ${isMe ? '<span style="font-size:11px;background:var(--green);color:#fff;padding:2px 8px;border-radius:999px;">나</span>' : ''}
+        <span style="margin-left:auto; font-weight:700; font-size:16px; color:${profitColor};">${r.profit > 0 ? '+' : ''}${r.profit}만원</span>
+      </div>
+      <div style="background:var(--gray2); border-radius:999px; height:6px; overflow:hidden;">
+        <div style="width:${barWidth}%; height:100%; background:${profitColor}; border-radius:999px; transition:width 0.5s;"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── 차트 ──

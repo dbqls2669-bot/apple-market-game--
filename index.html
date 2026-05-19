@@ -792,18 +792,18 @@ function renderMyRole() {
       <div class="role-card seller">
         <div class="role-icon">🏪</div>
         <div class="role-name" style="color:var(--blue)">판매자 (공급자)</div>
-        <div class="role-value" style="color:var(--blue)">${myRole.cost}만원</div>
+        <div class="role-value" style="color:var(--blue)">${(myRole.cost*10000).toLocaleString()}원</div>
         <div class="role-value-label">내 생산비용</div>
-        <div class="role-rule">생산비용(<b>${myRole.cost}만원</b>) 이상의 가격으로 팔아야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
+        <div class="role-rule">생산비용(<b>${(myRole.cost*10000).toLocaleString()}원</b>) 이상의 가격으로 팔아야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
       </div>`;
   } else {
     wrap.innerHTML = `
       <div class="role-card buyer">
         <div class="role-icon">🛒</div>
         <div class="role-name" style="color:var(--red)">구매자 (수요자)</div>
-        <div class="role-value" style="color:var(--red)">${myRole.value}만원</div>
+        <div class="role-value" style="color:var(--red)">${(myRole.value*10000).toLocaleString()}원</div>
         <div class="role-value-label">내 지불의향가격</div>
-        <div class="role-rule">지불의향가격(<b>${myRole.value}만원</b>) 이하로 사야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
+        <div class="role-rule">지불의향가격(<b>${(myRole.value*10000).toLocaleString()}원</b>) 이하로 사야 수익이 납니다.<br>손해 보는 거래는 절대 하지 마세요!</div>
       </div>`;
   }
 }
@@ -883,14 +883,14 @@ function refreshTeacherTrades(snap) {
     const state = stateSnap.val() || {session:1, round:1};
     const cur = trades.filter(t => t.session===state.session && t.round===state.round);
     document.getElementById('t-round-cnt').textContent = cur.length;
-    const avg = cur.length ? (cur.reduce((a,b)=>a+b.price,0)/cur.length).toFixed(1)+'만' : '—';
+    const avg = cur.length ? Math.round(cur.reduce((a,b)=>a+b.price,0)/cur.length*10000).toLocaleString()+'원' : '—';
     document.getElementById('t-avg').textContent = avg;
   });
 
   list.innerHTML = [...trades].reverse().slice(0,20).map(t => `
     <div class="trade-row">
       <span class="tag tag-s${t.session}" style="font-size:10px">S${t.session}R${t.round}</span>
-      <span style="font-weight:600">${t.price}만원</span>
+      <span style="font-weight:600">${(t.price*10000).toLocaleString()}원</span>
       <span style="color:var(--text2);flex:1;font-size:12px">${t.sellerName} → ${t.buyerName}</span>
       <span class="profit" style="font-size:12px">+${t.sellerProfit}/${t.buyerProfit}</span>
     </div>`).join('');
@@ -1019,12 +1019,7 @@ async function postMyOffer() {
   }
   const price = parseFloat(document.getElementById('my-offer-price').value);
   if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
-  // ★ 비정상 입력 차단: 만원 단위 기준 10만원 초과 입력 방지
-  if(price > 10) {
-    alert(`가격은 만원 단위로 입력하세요.\n예) 2만원 → "2", 2.5만원 → "2.5"\n\n지금 입력한 ${price}는 ${price}만원으로 처리됩니다. 맞으면 다시 입력해주세요.`);
-    document.getElementById('my-offer-price').value = '';
-    return;
-  }
+
   const isSeller = myRole.role === 'seller';
   if(isSeller && price < myRole.cost) { alert(`생산비용(${myRole.cost}만원)보다 낮은 가격입니다!`); return; }
   if(!isSeller && price > myRole.value) { alert(`지불의향가격(${myRole.value}만원)보다 높은 가격입니다!`); return; }
@@ -1044,7 +1039,7 @@ async function postMyOffer() {
   });
 
   document.getElementById('my-offer-price').value = '';
-  document.getElementById('my-post-status').textContent = `✅ ${price}만원에 ${isSeller?'판매':'구매'} 제안을 올렸어요!`;
+  document.getElementById('my-post-status').textContent = `✅ ${priceWon.toLocaleString()}원에 ${isSeller?'판매':'구매'} 제안을 올렸어요!`;
 }
 
 function renderPlaza(snap) {
@@ -1063,7 +1058,7 @@ function renderPlaza(snap) {
         <span style="font-weight:700;">${p.name}</span>
         ${isMe ? '<span style="font-size:11px;color:var(--text3);margin-left:auto;">내 제안</span>' : ''}
       </div>
-      <div class="post-price">${p.price}만원에 ${isSeller?'팔아요':'사고 싶어요'}</div>
+      <div class="post-price">${(p.price*10000).toLocaleString()}원에 ${isSeller?'팔아요':'사고 싶어요'}</div>
       ${!isMe ? '<div class="post-in-chat" style="margin-top:6px;color:var(--blue);font-size:12px;">클릭해서 채팅 요청 →</div>' : ''}
     </div>`;
   }).join('');
@@ -1233,12 +1228,7 @@ function closeContractModal() {
 async function submitContract() {
   const price = parseFloat(document.getElementById('contract-price').value);
   if(!price || price <= 0) { alert('가격을 입력해주세요.'); return; }
-  // ★ 비정상 입력 차단
-  if(price > 10) {
-    alert(`가격은 만원 단위로 입력하세요.\n예) 2만원 → "2", 2.5만원 → "2.5"\n\n${price}만원은 ${(price*10000).toLocaleString()}원입니다. 맞으면 다시 입력하세요.`);
-    document.getElementById('contract-price').value = '';
-    return;
-  }
+
 
   await update(ref(db, 'chatRooms/' + chatRoomId + '/contract'), {
     proposedBy: myName,
@@ -1247,13 +1237,13 @@ async function submitContract() {
   });
 
   await push(ref(db, 'chatRooms/' + chatRoomId + '/messages'), {
-    from: 'system', text: `📄 ${myName}님이 ${price}만원으로 계약서를 제출했습니다. 상대방의 확인을 기다리는 중...`,
+    from: 'system', text: `📄 ${myName}님이 ${priceWon.toLocaleString()}원으로 계약서를 제출했습니다. 상대방의 확인을 기다리는 중...`,
     timestamp: Date.now()
   });
 
   document.getElementById('contract-my-area').style.display = 'none';
   document.getElementById('contract-status-area').innerHTML = `
-    <div class="notice notice-warn">⏳ ${price}만원으로 제출했습니다. 상대방 확인 대기 중...</div>`;
+    <div class="notice notice-warn">⏳ ${priceWon.toLocaleString()}원으로 제출했습니다. 상대방 확인 대기 중...</div>`;
 }
 
 async function updateContractStatus(contract) {
@@ -1263,7 +1253,7 @@ async function updateContractStatus(contract) {
   if(contract.status === 'pending' && !isProposer) {
     const area = document.getElementById('contract-status-area');
     area.innerHTML = `
-      <div class="notice notice-warn">📄 ${contract.proposedBy}님이 <b>${contract.price}만원</b>으로 계약서를 제출했습니다.</div>
+      <div class="notice notice-warn">📄 ${contract.proposedBy}님이 <b>${(contract.price*10000).toLocaleString()}원</b>으로 계약서를 제출했습니다.</div>
       <button class="btn btn-green" onclick="confirmContract(${contract.price})">✅ 확인 (거래 성사)</button>
       <button class="btn btn-red" onclick="rejectContract()">❌ 거절</button>`;
     document.getElementById('contract-my-area').style.display = 'none';
@@ -1336,7 +1326,7 @@ async function finalizeContract(price) {
     await update(ref(db, 'students/' + sellerName), { traded: true, inChat: false });
     await update(ref(db, 'students/' + buyerName), { traded: true, inChat: false });
 
-    alert(`🎉 거래 성사! ${price}만원\n내 수익: ${myRole.role==='seller' ? sellerProfit : buyerProfit}만원`);
+    alert(`🎉 거래 성사! ${(price*10000).toLocaleString()}원\n내 수익: ${((myRole.role==='seller' ? sellerProfit : buyerProfit)*10000).toLocaleString()}원`);
     showTab('market');
   } finally {
     _finalizing = false;
@@ -1366,7 +1356,7 @@ function renderChart(sess) {
 
     document.getElementById('chart-sess-label').textContent = `세션 ${sess} 거래 수`;
     document.getElementById('chart-cnt').textContent = ts.length;
-    document.getElementById('chart-avg').textContent = avg ? avg+'만' : '—';
+    document.getElementById('chart-avg').textContent = avg ? Math.round(avg*10000).toLocaleString()+'원' : '—';
 
     if(sdChart) { sdChart.destroy(); sdChart = null; }
     sdChart = new Chart(document.getElementById('sdChart'), {
@@ -1395,23 +1385,25 @@ function renderChart(sess) {
         <span class="tag tag-s${sess}" style="font-size:10px">라운드 ${r}</span>
         <span style="font-weight:600">${rt.length}건</span>
         <span style="color:var(--text2);flex:1">평균</span>
-        <span style="font-weight:700">${ravg}만원</span>
+        <span style="font-weight:700">${Math.round(parseFloat(ravg)*10000).toLocaleString()}원</span>
       </div>`;
     }).join('');
 
     const s1t = allTrades.filter(t=>t.session===1);
     const s2t = allTrades.filter(t=>t.session===2);
     if(s1t.length && s2t.length) {
-      const avg1 = (s1t.reduce((a,b)=>a+b.price,0)/s1t.length).toFixed(1);
-      const avg2 = (s2t.reduce((a,b)=>a+b.price,0)/s2t.length).toFixed(1);
-      const diff = (parseFloat(avg2)-parseFloat(avg1)).toFixed(1);
+      const avg1raw = s1t.reduce((a,b)=>a+b.price,0)/s1t.length;
+      const avg2raw = s2t.reduce((a,b)=>a+b.price,0)/s2t.length;
+      const avg1 = Math.round(avg1raw*10000).toLocaleString();
+      const avg2 = Math.round(avg2raw*10000).toLocaleString();
+      const diff = ((avg2raw-avg1raw)*10000).toFixed(0);
       const dir = diff > 0 ? '📈 상승' : diff < 0 ? '📉 하락' : '→ 동일';
       document.getElementById('session-compare').style.display = 'block';
       document.getElementById('session-compare-body').innerHTML = `
-        <div class="trade-row"><span class="tag tag-s1">세션 1</span><span style="font-weight:700;flex:1">평균 ${avg1}만원</span></div>
-        <div class="trade-row"><span class="tag tag-s2">세션 2</span><span style="font-weight:700;flex:1">평균 ${avg2}만원</span></div>
+        <div class="trade-row"><span class="tag tag-s1">세션 1</span><span style="font-weight:700;flex:1">평균 ${avg1}원</span></div>
+        <div class="trade-row"><span class="tag tag-s2">세션 2</span><span style="font-weight:700;flex:1">평균 ${avg2}원</span></div>
         <div class="notice ${parseFloat(diff)>0?'notice-ok':'notice-warn'}" style="margin-top:8px;margin-bottom:0">
-          세션1 → 세션2: <b>${dir} (${Math.abs(diff)}만원)</b><br>
+          세션1 → 세션2: <b>${dir} (${Math.abs(diff)}원)</b><br>
           <span style="font-size:12px">세션2는 고비용 공급자·고의향 수요자 증가 → 균형가격 상승</span>
         </div>`;
     } else {

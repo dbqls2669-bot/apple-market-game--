@@ -704,11 +704,17 @@ window.requestChat = requestChat;
 Object.defineProperty(window, 'chartSess', { get: () => chartSess });
 
 // ── 초기화 ──
-document.getElementById('loading').style.display = 'none';
+// 오류가 나도 로딩 화면은 무조건 숨김
+try {
+  document.getElementById('loading').style.display = 'none';
+} catch(e) {}
+window.addEventListener('error', () => {
+  document.getElementById('loading').style.display = 'none';
+});
 
 // ── 화면 전환 ──
 function showScreen(id) {
-  ['s-home','s-teacher-login','s-student-login','s-teacher','s-role','s-market','s-chat','s-chart'].forEach(s => {
+  ['s-home','s-teacher-login','s-student-login','s-teacher','s-role','s-market','s-chat','s-chart','s-ranking','s-teacher-chat','s-teacher-ranking'].forEach(s => {
     document.getElementById(s).classList.remove('on');
   });
   document.getElementById(id).classList.add('on');
@@ -1194,8 +1200,7 @@ async function postMyOffer() {
   }
   // ★ 채팅 중이면 제안 불가
   if(chatRoomId) {
-    alert('채팅 중에는 제안을 올릴 수 없습니다.
-협상을 먼저 마무리해주세요.'); return;
+    alert('채팅 중에는 제안을 올릴 수 없습니다.\n협상을 먼저 마무리해주세요.'); return;
   }
   const mySnap = await get(ref(db, 'students/' + myName));
   if(mySnap.exists() && mySnap.val().traded) {

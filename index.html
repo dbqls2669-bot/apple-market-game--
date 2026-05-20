@@ -537,6 +537,16 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
     </div>
   </div>
 
+  <!-- 교사 순위 화면 -->
+  <div id="s-teacher-ranking" class="screen">
+    <div style="text-align:center; padding:20px 0 10px;">
+      <div style="font-size:40px;">🏆</div>
+      <div style="font-size:18px; font-weight:700; margin-top:6px;">최종 순위</div>
+      <div style="font-size:13px; color:var(--text2); margin-top:4px;">전체 세션 누적 이익 기준</div>
+    </div>
+    <div id="t-ranking-list"><div class="empty">아직 순위가 없습니다. 순위 공개 버튼을 눌러주세요.</div></div>
+  </div>
+
   <!-- ⑩ 순위 화면 -->
   <div id="s-ranking" class="screen">
     <div style="text-align:center; padding:20px 0 10px;">
@@ -576,6 +586,9 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
   </button>
   <button class="tab-btn" id="tab-teacher-chart" onclick="showTeacherTab('chart'); renderChart(chartSess)">
     <span class="ti ti-chart-line"></span>곡선
+  </button>
+  <button class="tab-btn" id="tab-teacher-ranking" onclick="showTeacherTab('teacher-ranking')">
+    <span class="ti ti-trophy"></span>순위
   </button>
 </nav>
 
@@ -720,15 +733,17 @@ function showTab(tab) {
 }
 
 function showTeacherTab(tab) {
-  ['teacher','teacher-chat','chart'].forEach(t => {
+  ['teacher','teacher-chat','chart','teacher-ranking'].forEach(t => {
     document.getElementById('s-'+t)?.classList.remove('on');
   });
   document.getElementById('tab-teacher-main')?.classList.remove('active');
   document.getElementById('tab-teacher-chat')?.classList.remove('active');
   document.getElementById('tab-teacher-chart')?.classList.remove('active');
+  document.getElementById('tab-teacher-ranking')?.classList.remove('active');
   document.getElementById('s-'+tab)?.classList.add('on');
   if(tab === 'teacher') document.getElementById('tab-teacher-main').classList.add('active');
   else if(tab === 'teacher-chat') document.getElementById('tab-teacher-chat').classList.add('active');
+  else if(tab === 'teacher-ranking') document.getElementById('tab-teacher-ranking').classList.add('active');
   else document.getElementById('tab-teacher-chart').classList.add('active');
 }
 
@@ -896,8 +911,39 @@ function startTeacherListeners() {
   onValue(ref(db, 'chatRooms'), snap => {
     renderTeacherChatMonitor(snap);
   });
+
+  // ★ 순위 실시간 반영
+  onValue(ref(db, 'ranking'), snap => {
+    renderTeacherRanking(snap);
+  });
 }
 
+
+function renderTeacherRanking(snap) {
+  const list = document.getElementById('t-ranking-list');
+  if(!list) return;
+  if(!snap || !snap.exists()) {
+    list.innerHTML = '<div class="empty">아직 순위가 없습니다. 순위 공개 버튼을 눌러주세요.</div>';
+    return;
+  }
+  const { data: ranking } = snap.val();
+  const medals = ['🥇','🥈','🥉'];
+  const maxProfit = ranking[0]?.profit || 1;
+  list.innerHTML = ranking.map((r, i) => {
+    const barWidth = Math.max(Math.round((r.profit / maxProfit) * 100), 4);
+    const profitColor = r.profit > 0 ? 'var(--green)' : r.profit < 0 ? 'var(--red)' : 'var(--text3)';
+    return `<div style="padding:12px 14px;margin-bottom:8px;background:var(--gray);border-radius:var(--radius-sm);border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span style="font-size:22px;min-width:30px;">${medals[i] || (i+1)+'위'}</span>
+        <span style="font-weight:700;font-size:15px;">${r.name}</span>
+        <span style="margin-left:auto;font-weight:700;font-size:16px;color:${profitColor};">${r.profit > 0 ? '+' : ''}${r.profit}만원</span>
+      </div>
+      <div style="background:var(--gray2);border-radius:999px;height:6px;overflow:hidden;">
+        <div style="width:${barWidth}%;height:100%;background:${profitColor};border-radius:999px;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 function renderTeacherChatMonitor(snap) {
   const wrap = document.getElementById('t-chat-monitor-list');
@@ -1145,6 +1191,11 @@ async function postMyOffer() {
   const stateSnap = await get(ref(db, 'game/state'));
   if(!stateSnap.exists() || !stateSnap.val().marketOpen) {
     alert('시장이 닫혀 있습니다.'); return;
+  }
+  // ★ 채팅 중이면 제안 불가
+  if(chatRoomId) {
+    alert('채팅 중에는 제안을 올릴 수 없습니다.
+협상을 먼저 마무리해주세요.'); return;
   }
   const mySnap = await get(ref(db, 'students/' + myName));
   if(mySnap.exists() && mySnap.val().traded) {
